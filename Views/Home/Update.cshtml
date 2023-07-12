@@ -1,0 +1,22 @@
+﻿@model Radio;
+
+<div class="container">
+    <div class="row text-center">
+        <h2>Updating Radio Info</h2>
+    </div>
+    <form method="post">
+        <div class="form-group">
+            <label asp-for="@Model.RadioName">Radio Name</label>
+            <input asp-for="@Model.RadioName" class="form-control" value="@Model.RadioName">
+            <span asp-validation-for="@Model.RadioName" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="@Model.RadioLink">API Link</label>
+            <input asp-for="@Model.RadioLink" class="form-control" value="@Model.RadioLink">
+            <span asp-validation-for="@Model.RadioLink" class="text-danger"></span>
+        </div>
+        <input type="hidden" asp-for="@Model.RadioId" value="@Model.RadioId"/>
+        <br />
+        <button type="submit" class="btn btn-primary">Update</button>
+    </form>
+</div>

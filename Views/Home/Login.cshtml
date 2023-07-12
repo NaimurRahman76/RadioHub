@@ -1,0 +1,21 @@
+﻿@model User;
+
+<div class="container">
+    <div class="row text-center">
+        <h2>Please  Login</h2>
+    </div>
+    <form method="post">
+        <div class="form-group">
+            <label asp-for="@Model.Email">User Email</label>
+            <input asp-for="@Model.Email" class="form-control" placeholder="Please enter user email">
+            <span asp-validation-for="@Model.Email" class="text-danger"></span>
+        </div>
+        <div class="form-group">
+            <label asp-for="@Model.Password">Password</label>
+            <input asp-for="@Model.Password" class="form-control" placeholder="please enter password">
+            <span asp-validation-for="@Model.Password" class="text-danger"></span>
+        </div>
+        <br />
+        <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+</div>

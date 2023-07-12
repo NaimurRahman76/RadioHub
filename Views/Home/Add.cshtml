@@ -1,0 +1,25 @@
+﻿@model Radio
+
+
+<div class="container">
+    <div class="row">
+        <h2 class="text-center fw-bold">Add new Radio</h2>
+        
+    </div>
+    <div class="row">
+        <form method="post">
+            <div class="form-group">
+                <label asp-for="@Model.RadioName">Radio Name</label>
+                <input asp-for="@Model.RadioName" class="form-control" placeholder="Enter radio name">
+                <span asp-validation-for="@Model.RadioName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="@Model.RadioLink">API Link</label>
+                <input asp-for="@Model.RadioLink" class="form-control" placeholder="Enter API link">
+                <span asp-validation-for="@Model.RadioLink" class="text-danger"></span>
+            </div>
+            <br />
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+</div>

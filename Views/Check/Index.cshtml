@@ -1,0 +1,26 @@
+﻿@model int
+
+@if (ViewBag.message != null)
+{
+    <div class=" container shadow text-center">
+        <h2 class="text-danger"> 
+            Please type right code...
+        </h2>
+    </div>
+}
+<div class="container ">
+    <div class="mt-2 card-title">
+        <div class="row border-1">
+            <h2 class="text-center">Please Check your email box for the varification code</h2>
+        </div>
+        <div class=" form-control">
+            <form method="post" asp-controller="Check" asp-action="Index">
+                <label class=" col-5">Varification Code</label>
+                <input type="number" class="form-control" name="code" value="@Model" />
+                <input type="hidden"  class="form-control" name="id" value="@ViewBag.Id" />
+                <button type="submit" class="btn btn-primary"> Submit</button>
+            </form>
+
+        </div>
+    </div>
+</div>
