@@ -1,4 +1,9 @@
-﻿@model List<Radio>;
+@model List<Radio>;
+@{
+    ViewData["Title"] = "RadioHub - Listen to Radio Stations Online | Free Internet Radio";
+    ViewData["Description"] = "Stream thousands of radio stations worldwide with RadioHub. Listen to music, news, sports, and talk shows online for free. Discover your favorite radio stations today!";
+    ViewData["Keywords"] = "online radio, internet radio, radio streaming, live radio, music radio, news radio, sports radio, talk radio, free radio";
+}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 <style>
     .card {
@@ -88,8 +93,37 @@
     }
 </div>
 </div>
+
+@section StructuredData {
+<script type="application/ld+json">
+[
+    @if (Model != null && Model.Count > 0)
+    {
+        foreach (var radio in Model)
+        {
+            @:@{
+                string comma = radio == Model.Last() ? "" : ",";
+            }
+            <text>
+    {
+        "@@context": "https://schema.org",
+        "@@type": "RadioStation",
+        "name": "@radio.RadioName",
+        "url": "@radio.RadioLink",
+        "description": "Listen to @radio.RadioName radio station online",
+        "mainEntityOfPage": {
+            "@@type": "WebPage",
+            "@@id": "@Context.Request.Scheme://@Context.Request.Host/"
+        }
+    }@(comma)
+            </text>
+        }
+    }
+]
+</script>
+}
+
 @section Scripts {
-    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js"></script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>

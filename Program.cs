@@ -32,6 +32,18 @@ app.UseRouting();
 
 app.UseAuthorization();
 app.UseSession();
+
+// SEO routes
+app.MapControllerRoute(
+    name: "robots",
+    pattern: "robots.txt",
+    defaults: new { controller = "Home", action = "RobotsTxt" });
+
+app.MapControllerRoute(
+    name: "sitemap",
+    pattern: "sitemap.xml",
+    defaults: new { controller = "Home", action = "SitemapXml" });
+
 app.MapControllerRoute(
 	name: "default",
 	pattern: "{controller=Home}/{action=Index}/{id?}");

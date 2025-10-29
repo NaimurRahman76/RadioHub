@@ -1,18 +1,4 @@
-# Build and project files
-[Bb]in/
-[Oo]bj/
-*.user
-*.userosscache
-*.sln.docstates
-*.suo
-*.userpref
-*.dbmdl
-*.jfm
-*.pfx
-*.publishsettings
-orleans.codegen.cs
-
-# Visual Studio files
+# Visual Studio and VS Code files
 .vs/
 .vscode/
 *.suo
@@ -23,20 +9,10 @@ _ReSharper*/
 *.ncrunchsolution
 *.ncrunchproject
 
-# User-specific files
-*.rsuser
-*.user
-
-# MSTest test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
-
-# Local development settings
-appsettings.Development.json
-appsettings.*.json
-!appsettings.json
-
 # Build results
+bin/
+obj/
+[Bb]in/[Oo]bj/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -44,11 +20,23 @@ appsettings.*.json
 x64/
 x86/
 build/
-bld/
-[Bb]in/[Oo]bj/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
+
+# User-specific files
+*.rsuser
+*.user
+*.userprefs
+
+# Local development settings
+appsettings.*.json
+!appsettings.json
+
+# MSTest test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Deployment files (you might want to keep these, remove if not needed)
+# deploy.bat
+# deploy.sh
 
 # OS generated files
 .DS_Store
@@ -59,6 +47,35 @@ bld/
 ehthumbs.db
 Thumbs.db
 
-# Local development
-*.userprefs
-*.user
+# Project specific
+wwwroot/lib/  # If you use client-side libraries
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Visual Studio 2022 specific
+.razor.vs/
+.razorpages.vs/
+*.csproj.user
+*.csproj.*.user
+
+# Visual Studio Code specific
+.history/
+
+# Rider specific
+.idea/
+*.sln.iml
+
+# Local development environment
+launchSettings.json
+
+# Visual Studio cache/options directory
+.vs/
+
+# MSTest results
+TestResults/
+
+# Local development environment (IIS Express)
+*.iisx

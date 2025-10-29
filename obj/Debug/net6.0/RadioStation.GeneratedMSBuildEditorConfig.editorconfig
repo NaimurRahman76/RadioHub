@@ -9,65 +9,69 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = RadioStation
 build_property.RootNamespace = RadioStation
-build_property.ProjectDir = C:\Users\bs780\Desktop\Temp\RadioStation\
+build_property.ProjectDir = D:\My projects\RadioHub\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.RazorLangVersion = 6.0
 build_property.SupportLocalizedComponentNames = 
 build_property.GenerateRazorMetadataSourceChecksumAttributes = 
-build_property.MSBuildProjectDirectory = C:\Users\bs780\Desktop\Temp\RadioStation
+build_property.MSBuildProjectDirectory = D:\My projects\RadioHub
 build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 6.0
+build_property.EnableCodeStyleSeverity = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Check/Index.cshtml]
+[D:/My projects/RadioHub/Views/Check/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ2hlY2tcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Add.cshtml]
+[D:/My projects/RadioHub/Views/Home/Add.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxBZGQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Favourite.cshtml]
+[D:/My projects/RadioHub/Views/Home/Favourite.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxGYXZvdXJpdGUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Index.cshtml]
+[D:/My projects/RadioHub/Views/Home/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Login.cshtml]
+[D:/My projects/RadioHub/Views/Home/Login.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxMb2dpbi5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Privacy.cshtml]
+[D:/My projects/RadioHub/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Home/Update.cshtml]
+[D:/My projects/RadioHub/Views/Home/Update.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxVcGRhdGUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Shared/Error.cshtml]
+[D:/My projects/RadioHub/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Shared/_Modal.cshtml]
+[D:/My projects/RadioHub/Views/Shared/_Modal.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9Nb2RhbC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Shared/_ValidationScriptsPartial.cshtml]
+[D:/My projects/RadioHub/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/SignUp/Index.cshtml]
+[D:/My projects/RadioHub/Views/SignUp/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2lnblVwXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/_ViewImports.cshtml]
+[D:/My projects/RadioHub/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/_ViewStart.cshtml]
+[D:/My projects/RadioHub/Views/_ViewStart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdTdGFydC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/bs780/Desktop/Temp/RadioStation/Views/Shared/_Layout.cshtml]
+[D:/My projects/RadioHub/Views/Shared/_Layout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9MYXlvdXQuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = b-ej17hkk0q4

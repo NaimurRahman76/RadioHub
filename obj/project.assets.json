@@ -3614,19 +3614,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\bs780\\.nuget\\packages\\": {}
+    "C:\\Users\\Naimur Rahman\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\bs780\\Desktop\\Temp\\RadioStation\\RadioStation.csproj",
+      "projectUniqueName": "D:\\My projects\\RadioHub\\RadioStation.csproj",
       "projectName": "RadioStation",
-      "projectPath": "C:\\Users\\bs780\\Desktop\\Temp\\RadioStation\\RadioStation.csproj",
-      "packagesPath": "C:\\Users\\bs780\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\bs780\\Desktop\\Temp\\RadioStation\\obj\\",
+      "projectPath": "D:\\My projects\\RadioHub\\RadioStation.csproj",
+      "packagesPath": "C:\\Users\\Naimur Rahman\\.nuget\\packages\\",
+      "outputPath": "D:\\My projects\\RadioHub\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\bs780\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Naimur Rahman\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -3646,7 +3651,13 @@
         "warnAsError": [
           "NU1605"
         ]
-      }
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.200"
     },
     "frameworks": {
       "net6.0": {
@@ -3690,7 +3701,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.202\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203\\RuntimeIdentifierGraph.json"
       }
     }
   }
