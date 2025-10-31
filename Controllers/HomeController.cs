@@ -21,8 +21,11 @@ namespace RadioStation.Controllers
             if (id != 0)
             {
                 var name = _context.Users.Find(id);
-                HttpContext.Session.SetInt32("userId", id);
-                HttpContext.Session.SetString("userName", name.Name);
+                if (name != null)
+                {
+                    HttpContext.Session.SetInt32("userId", id);
+                    HttpContext.Session.SetString("userName", name.Name);
+                }
             }
             var radioList = _context.Radios.ToList();
             return View(radioList);
@@ -58,8 +61,11 @@ namespace RadioStation.Controllers
         public IActionResult Delete(int id)
         {
             var radio = _context.Radios.Find(id);
-            _context.Remove(radio);
-            _context.SaveChanges();
+            if (radio != null)
+            {
+                _context.Remove(radio);
+                _context.SaveChanges();
+            }
             return RedirectToAction("Index", "Home");
         }
         public IActionResult Login()
@@ -97,14 +103,20 @@ namespace RadioStation.Controllers
             {
                 var user = _context.Users.Include(x => x.FavoriteRadios).FirstOrDefault(o => o.UserId == userId);
                 var radio = _context.Radios.Find(radioId);
-                user.FavoriteRadios.Add(radio);
+                if (user?.FavoriteRadios != null && radio != null)
+                {
+                    user.FavoriteRadios.Add(radio);
+                }
                 _context.SaveChanges();
             }
             else
             {
                 var user = _context.Users.Include(x => x.FavoriteRadios).FirstOrDefault(o => o.UserId == userId);
                 var radio = _context.Radios.Find(radioId);
-                user.FavoriteRadios.Remove(radio);
+                if (user?.FavoriteRadios != null && radio != null)
+                {
+                    user.FavoriteRadios.Remove(radio);
+                }
             }
             return Json(new { success = true });
         }
@@ -112,7 +124,7 @@ namespace RadioStation.Controllers
         public IActionResult Favourite(int id)
         {
             var favourite = _context.Users.Include(x => x.FavoriteRadios).FirstOrDefault(o => o.UserId == id);
-            return View(favourite.FavoriteRadios.ToList());
+            return View(favourite?.FavoriteRadios?.ToList() ?? new List<Radio>());
         }
 
         public IActionResult RobotsTxt()

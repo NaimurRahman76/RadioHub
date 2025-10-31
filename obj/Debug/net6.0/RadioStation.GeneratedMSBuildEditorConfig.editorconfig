@@ -64,6 +64,18 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2lnblVwXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[D:/My projects/RadioHub/Views/Song/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU29uZ1xJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/My projects/RadioHub/Views/Song/Search.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU29uZ1xTZWFyY2guY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[D:/My projects/RadioHub/Views/Song/SearchResults.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU29uZ1xTZWFyY2hSZXN1bHRzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [D:/My projects/RadioHub/Views/_ViewImports.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 

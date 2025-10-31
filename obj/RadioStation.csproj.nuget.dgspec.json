@@ -50,6 +50,10 @@
         "net6.0": {
           "targetAlias": "net6.0",
           "dependencies": {
+            "Google.Apis.YouTube.v3": {
+              "target": "Package",
+              "version": "[1.62.0.3169, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[7.0.5, )"
@@ -67,6 +71,18 @@
             "System.ComponentModel.Annotations": {
               "target": "Package",
               "version": "[5.0.0, )"
+            },
+            "System.Text.Encoding.CodePages": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "YoutubeExplode": {
+              "target": "Package",
+              "version": "[6.5.6, )"
+            },
+            "YoutubeExplode.Converter": {
+              "target": "Package",
+              "version": "[6.5.6, )"
             }
           },
           "imports": [

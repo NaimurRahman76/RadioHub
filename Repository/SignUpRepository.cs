@@ -1,4 +1,4 @@
-﻿using RadioStation.Data;
+using RadioStation.Data;
 using RadioStation.Models;
 
 namespace RadioStation.Repository
@@ -24,7 +24,7 @@ namespace RadioStation.Repository
         public bool GetCodeResult(int id,int code) 
         {
             var res = _db.Users.Find(id);
-            return res.EmailConfirmed == code; 
+            return res?.EmailConfirmed == code; 
         }
     }
 }

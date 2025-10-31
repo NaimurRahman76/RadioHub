@@ -1,0 +1,1114 @@
+@model RadioStation.Models.SongQueueViewModel
+
+@{
+    ViewData["Title"] = "RadioHub - Music Player";
+}
+
+<style>
+    .audio-player-container {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .queue-item {
+        transition: all 0.3s ease;
+    }
+    .queue-item:hover {
+        background-color: #f8f9fa;
+    }
+    .search-result {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .search-result:hover {
+        background-color: #f8f9fa;
+    }
+    #waveform {
+        height: 80px;
+        background-color: #f1f3f4;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <!-- Left Side - Now Playing -->
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Now Playing</h4>
+                </div>
+                <div class="card-body text-center">
+                    @if (Model.CurrentlyPlaying != null)
+                    {
+                        <div id="nowPlaying">
+                            <h3>@Model.CurrentlyPlaying.Title</h3>
+                            <p class="text-muted">Requested by: @Model.CurrentlyPlaying.RequesterName</p>
+                            @if (!string.IsNullOrEmpty(Model.CurrentlyPlaying.Note))
+                            {
+                                <p class="text-info">@Model.CurrentlyPlaying.Note</p>
+                            }
+                            <div class="mt-3">
+                                <div class="audio-player-container">
+                                <div id="waveform" class="mb-2"></div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <button id="playPauseBtn" class="btn btn-primary btn-sm me-2">
+                                        <i class="fas fa-play" id="playPauseIcon"></i>
+                                    </button>
+                                    <div class="flex-grow-1">
+                                        <div class="progress" style="height: 5px;">
+                                            <div id="progressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div id="timeDisplay" class="ms-2 text-muted small">0:00 / 0:00</div>
+                                </div>
+                                <div id="playerStatus" class="small text-muted">Ready to play</div>
+                                <div id="audioFallback" class="alert alert-warning d-none mt-2">
+                                    <p>Autoplay was prevented. Please click the play button to start listening.</p>
+                                    <button class="btn btn-sm btn-primary" id="startPlayback">
+                                        <i class="fas fa-play me-1"></i> Play Now
+                                    </button>
+                                </div>
+                            </div>
+                            </div>
+                            <div class="mt-3">
+                                <form asp-action="StopCurrentSong" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-stop"></i> Stop
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div id="nowPlaying" class="text-muted">
+                            <p>No song is currently playing.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Queue -->
+            <div class="card shadow mt-4">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Up Next</h5>
+                    <form asp-action="ClearQueue" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-trash"></i> Clear Queue
+                        </button>
+                    </form>
+                </div>
+                <div class="card-body p-0">
+                    @if (Model.Queue.Any())
+                    {
+                        <ul class="list-group list-group-flush" id="queueList">
+                            @foreach (var song in Model.Queue)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>@song.Title</span>
+                                    <small class="text-muted">@song.RequesterName</small>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="p-3 text-center text-muted">
+                            The queue is empty. Search for songs to add to the queue.
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Search -->
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">Search & Request Songs</h4>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" id="searchQuery" class="form-control" placeholder="Search for a song..." required>
+                            <button type="submit" class="btn btn-primary" id="searchButton">
+                                <span id="searchButtonText"><i class="fas fa-search"></i> Search</span>
+                                <span id="searchSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                        <div id="searchError" class="text-danger mt-2 d-none"></div>
+                    </form>
+
+                    <div id="searchResults" class="d-none">
+                        <h5>Search Results</h5>
+                        <div id="resultsContainer" class="list-group mb-3">
+                            <!-- Results will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <div id="requestForm" class="d-none">
+                        <h5>Request Song</h5>
+                        <form id="songRequestForm">
+                            <input type="hidden" id="youtubeVideoId">
+                            <input type="hidden" id="songTitle">
+                            
+                            <div class="mb-3">
+                                <label for="requesterName" class="form-label">Your Name (Optional)</label>
+                                <input type="text" class="form-control" id="requesterName" placeholder="Anonymous">
+                            </div>
+                            <div class="mb-3">
+                                <label for="note" class="form-label">Note (Optional)</label>
+                                <textarea class="form-control" id="note" rows="2" placeholder="Add a message..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-music"></i> Add to Queue
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="statusToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            <!-- Message will be inserted here -->
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/minimap.min.js"></script>
+    <script>
+        // Audio player variables in the global scope
+        var sound;
+        var isPlaying = false;
+        var currentSongId = null;
+        var updateInterval = null;
+        var wavesurfer = null;
+        
+        // Function to load and play audio
+        function loadAndPlayAudio(audioUrl, songId) {
+            console.log(`Loading audio: ${audioUrl}`);
+            
+            // Clean up existing audio if any
+            if (sound) {
+                sound.unload();
+                sound = null;
+                clearInterval(updateInterval);
+            }
+
+            // Set the current song ID
+            currentSongId = songId;
+
+            // Initialize WaveSurfer if not already created
+            if (!wavesurfer) {
+                wavesurfer = WaveSurfer.create({
+                    container: '#waveform',
+                    waveColor: '#4a90e2',
+                    progressColor: '#2c5aa0',
+                    cursorColor: '#ff5722',
+                    barWidth: 2,
+                    barRadius: 3,
+                    responsive: true,
+                    height: 80,
+                    normalize: true,
+                    backend: 'WebAudio',
+                    mediaControls: false,
+                    plugins: [
+                        WaveSurfer.Minimap.create({
+                            height: 20,
+                            waveColor: '#555',
+                            progressColor: '#333',
+                            insertPosition: 'afterbegin'
+                        })
+                    ]
+                });
+                
+                // Add click handler to seek in the audio
+                wavesurfer.on('interaction', () => {
+                    if (sound && isPlaying) {
+                        const duration = sound.duration();
+                        const currentTime = wavesurfer.getCurrentTime();
+                        sound.seek(currentTime / duration);
+                    }
+                });
+                
+                // Update time display when seeking
+                wavesurfer.on('seeking', (currentTime) => {
+                    if (sound) {
+                        const duration = sound.duration();
+                        if (duration && !isNaN(duration)) {
+                            const timeDisplay = document.getElementById('timeDisplay');
+                            if (timeDisplay) {
+                                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+                            }
+                            const progress = (currentTime / duration) * 100;
+                            $('#progressBar').css('width', progress + '%');
+                        }
+                    }
+                });
+            }
+            
+            // Load the audio stream into WaveSurfer
+            wavesurfer.load(audioUrl || 'http://localhost:8087/live');
+
+            // Create new Howl instance
+            sound = new Howl({
+                src: [audioUrl || 'http://localhost:8087/live'],
+                html5: true,
+                format: ['mp3', 'aac'],
+                autoplay: true,
+                onplay: function() {
+                    console.log('Playback started:', songId);
+                    isPlaying = true;
+                    updatePlayPauseButton();
+                    startProgressTracking();
+                    wavesurfer.play();
+                },
+                onpause: function() {
+                    console.log('Playback paused');
+                    isPlaying = false;
+                    updatePlayPauseButton();
+                    clearInterval(updateInterval);
+                    wavesurfer.pause();
+                },
+                onstop: function() {
+                    console.log('Playback stopped');
+                    isPlaying = false;
+                    updatePlayPauseButton();
+                    clearInterval(updateInterval);
+                    wavesurfer.stop();
+                },
+                onend: function() {
+                    console.log('Playback ended, requesting next song');
+                    isPlaying = false;
+                    updatePlayPauseButton();
+                    wavesurfer.stop();
+                    
+                    // Let the server know this song has ended
+                    // The server will handle moving to the next song in the queue
+                    if (currentSongId) {
+                        playNextSong();
+                    }
+                },
+                onloaderror: function(id, error) {
+                    console.error('Load error:', error);
+                    showToast('Error loading audio', 'error');
+                    // Try to play next song if current one fails
+                    setTimeout(playNextSong, 2000);
+                },
+                onplayerror: function() {
+                    console.error('Play error');
+                    showToast('Playback error', 'error');
+                    // Show fallback UI if needed
+                    const audioFallback = document.getElementById('audioFallback');
+                    if (audioFallback) audioFallback.classList.remove('d-none');
+                }
+            });
+        }
+        
+        // Start progress tracking
+        function startProgressTracking() {
+            clearInterval(updateInterval);
+            updateProgress(); // Initial update
+            
+            updateInterval = setInterval(function() {
+                updateProgress();
+            }, 1000);
+        }
+        
+        // Update progress bar and time display
+        function updateProgress() {
+            if (!sound || !isPlaying) return;
+            
+            const seek = sound.seek() || 0;
+            const duration = sound.duration() || 1;
+            const progress = (seek / duration) * 100;
+            
+            // Update progress bar
+            const progressBar = document.getElementById('progressBar');
+            const timeDisplay = document.getElementById('timeDisplay');
+            
+            if (progressBar) {
+                progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+            }
+            
+            if (timeDisplay) {
+                const formatTime = (secs) => {
+                    const minutes = Math.floor(secs / 60) || 0;
+                    const seconds = Math.floor(secs - minutes * 60) || 0;
+                    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                };
+                
+                timeDisplay.textContent = `${formatTime(seek)} / ${formatTime(duration)}`;
+            }
+            
+            // Sync WaveSurfer progress with Howler
+            if (wavesurfer && wavesurfer.getDuration() > 0) {
+                wavesurfer.seekTo(progress / 100);
+            }
+        };
+        
+        // Add click handler to progress bar for seeking
+        $(document).on('click', '#progressBar', function(e) {
+            if (!sound) return;
+            
+            const progressBar = $(this);
+            const parent = progressBar.parent();
+            const clickX = e.pageX - parent.offset().left;
+            const width = parent.width();
+            const percentage = clickX / width;
+            
+            // Define formatTime function locally
+            const formatTime = (secs) => {
+                const minutes = Math.floor(secs / 60) || 0;
+                const seconds = Math.floor(secs - minutes * 60) || 0;
+                return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            };
+            
+            // Seek in Howler.js
+            const duration = sound.duration();
+            sound.seek(percentage * duration);
+            
+            // Seek in WaveSurfer.js
+            if (wavesurfer) {
+                wavesurfer.seekTo(percentage);
+            }
+            
+            // Update progress display immediately
+            const currentTime = percentage * duration;
+            const timeDisplay = document.getElementById('timeDisplay');
+            if (timeDisplay) {
+                timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+            }
+            progressBar.css('width', (percentage * 100) + '%');
+        });
+        
+        // Toggle play/pause
+        function togglePlayback() {
+            // If no sound is loaded but we have a current song ID, try to load it
+            if (!sound && currentSongId) {
+                refreshQueue();
+                return;
+            }
+            
+            if (!sound) return;
+            
+            if (isPlaying) {
+                sound.pause();
+                if (wavesurfer) {
+                    wavesurfer.pause();
+                }
+            } else {
+                sound.play();
+                if (wavesurfer) {
+                    wavesurfer.play();
+                }
+            }
+        }
+        
+        // Refresh the queue - SongPlayerService will handle playing the next song automatically
+        function playNextSong() {
+            console.log('Refreshing queue to check for next song...');
+            refreshQueue();
+        }
+        
+        // Stop the current song
+        function stopCurrentSong() {
+            if (sound) {
+                sound.stop();
+            }
+            if (wavesurfer) {
+                wavesurfer.stop();
+            }
+        }
+        
+        // Toggle play/pause
+        function togglePlayback() {
+            // If no sound is loaded but we have a current song ID, try to load it
+            if (!sound && currentSongId) {
+                refreshQueue();
+                return;
+            }
+            
+            if (!sound) return;
+            
+            if (isPlaying) {
+                sound.pause();
+            } else {
+                sound.play();
+            }
+        }
+        
+        // Request the next song from the server
+        function playNextSong() {
+            console.log('Requesting next song from server...');
+            $.post('/Song/PlayNextSong')
+                .done(function(response) {
+                    console.log('PlayNextSong response:', response);
+                    // The QueueUpdated event will handle the UI update and start playback
+                })
+                .fail(function(error) {
+                    console.error('Error requesting next song:', error);
+                    showToast('Error requesting next song', 'error');
+                    
+                    // If we fail to get the next song, try refreshing the queue after a delay
+                    setTimeout(refreshQueue, 5000);
+                });
+        }
+        
+        $(document).ready(function() {
+            // Initialize toast
+            const toastEl = document.getElementById('statusToast');
+            const toast = toastEl ? new bootstrap.Toast(toastEl) : null;
+            
+            // Initialize audio player if Howler is available
+            if (typeof Howl === 'undefined') {
+                console.error('Howler.js is not loaded');
+            }
+            
+            // Handle search form submission
+            $('#searchForm').on('submit', function(e) {
+                e.preventDefault();
+                const query = $('#searchQuery').val().trim();
+                if (query) {
+                    searchSongs(query);
+                }
+            });
+
+            // Handle song request form submission
+            $('#songRequestForm').on('submit', function(e) {
+                e.preventDefault();
+                requestSong();
+            });
+
+                // Initialize SignalR connection
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/radioHub')
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Information)
+                .build();
+
+            // Handle queue updates
+            connection.on('QueueUpdated', function (queueData) {
+                console.log('Queue updated via SignalR:', queueData);
+                
+                // Check if the current song has changed
+                const currentSongChanged = queueData.currentlyPlaying && 
+                    (!currentSongId || currentSongId !== queueData.currentlyPlaying.youtubeVideoId);
+                
+                // Update the UI
+                updateQueueUI(queueData);
+                
+                // If there's a new song to play and it's not already playing
+                if (currentSongChanged && queueData.currentlyPlaying) {
+                    const currentSong = queueData.currentlyPlaying;
+                    currentSongId = currentSong.youtubeVideoId;
+                    const audioUrl = currentSong.audioUrl || `http://localhost:8087/stream/${currentSong.youtubeVideoId}`;
+                    
+                    // Load and play the new song
+                    loadAndPlayAudio(audioUrl, currentSong.youtubeVideoId);
+                }
+            });
+
+            // Start the connection
+            connection.start()
+                .then(function () {
+                    console.log('SignalR Connected');
+                    refreshQueue(); // Initial load
+                })
+                .catch(function (err) {
+                    console.error('SignalR Connection Error: ', err);
+                    // Try to reconnect after a delay
+                    setTimeout(() => connection.start().catch(e => console.error('Reconnection failed:', e)), 5000);
+                });
+                
+            // Handle reconnection
+            connection.onreconnecting(error => {
+                console.log('SignalR reconnecting...', error);
+            });
+            
+            connection.onreconnected(connectionId => {
+                console.log('SignalR reconnected. Connection ID:', connectionId);
+                refreshQueue(); // Refresh the queue after reconnection
+            });
+
+            // Initialize audio player if Howler is available
+            if (typeof Howl === 'undefined') {
+                console.error('Howler.js is not loaded');
+                return;
+            }
+            
+            // Update play/pause button state
+            function updatePlayPauseButton() {
+                const icon = $('#playPauseIcon');
+                if (!icon.length) return;
+                
+                if (isPlaying) {
+                    icon.removeClass('fa-play').addClass('fa-pause');
+                    $('#playPauseBtn').attr('title', 'Pause');
+                } else {
+                    icon.removeClass('fa-pause').addClass('fa-play');
+                    $('#playPauseBtn').attr('title', 'Play');
+                }
+            }
+            
+            // Toggle play/pause - using the global togglePlayback function
+            
+            // Format time (seconds to MM:SS)
+            const formatTime = (secs) => {
+                const minutes = Math.floor(secs / 60) || 0;
+                const seconds = Math.floor(secs - minutes * 60) || 0;
+                return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            };
+            
+            // Update progress bar and time display
+            const updateProgress = () => {
+                if (!sound) return;
+                
+                const seek = sound.seek() || 0;
+                const duration = sound.duration() || 1;
+                const progress = (seek / duration) * 100;
+                
+                progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+                timeDisplay.textContent = `${formatTime(seek)} / ${formatTime(duration)}`;
+                
+                // Update WaveSurfer.js position to sync with Howler.js
+                if (wavesurfer && wavesurfer.getDuration() > 0) {
+                    wavesurfer.seekTo(progress / 100);
+                }
+                
+                // If we've reached the end, check for next song
+                if (duration > 0 && seek >= duration - 1) {
+                    console.log('Song ended, checking for next song');
+                    refreshQueue();
+                }
+            };
+            
+            // Initialize or update the audio stream
+            const initAudio = (audioUrl, songId) => {
+                // Clean up existing sound if any
+                if (sound) {
+                    sound.unload();
+                    sound = null;
+                }
+                audioUrl = "http://localhost:8087/live"
+                if (!audioUrl) {
+                    console.error('No audio URL provided');
+                    return;
+                }
+                
+                console.log('Initializing audio with URL:', audioUrl);
+                
+                // Create new Howl instance with cache buster
+                sound = new Howl({
+                    src: [audioUrl],
+                    html5: true, // Force HTML5 so we can stream
+                    format: ['mp3', 'aac'],
+                    autoplay: true,
+                    onload: function() {
+                        console.log('Audio loaded');
+                        const playerStatus = document.getElementById('playerStatus');
+                        if (playerStatus) {
+                            playerStatus.textContent = 'Ready to play';
+                        }
+                        // Auto-play if possible
+                        sound.play().catch(error => {
+                            console.log('Autoplay prevented, user interaction required');
+                        });
+                    },
+                    onplay: function() {
+                        console.log('Playback started');
+                        isPlaying = true;
+                        playPauseIcon.className = 'fas fa-pause';
+                        playerStatus.textContent = 'Playing...';
+                        audioFallback.classList.add('d-none');
+                        
+                        // Start progress updates
+                        clearInterval(updateInterval);
+                        updateInterval = setInterval(updateProgress, 1000);
+                    },
+                    onpause: function() {
+                        console.log('Playback paused');
+                        isPlaying = false;
+                        const playPauseIcon = document.getElementById('playPauseIcon');
+                        const playerStatus = document.getElementById('playerStatus');
+                        
+                        if (playPauseIcon) playPauseIcon.className = 'fas fa-play';
+                        if (playerStatus) playerStatus.textContent = 'Paused';
+                        clearInterval(updateInterval);
+                    },
+                    onstop: function() {
+                        console.log('Playback stopped');
+                        isPlaying = false;
+                        const playPauseIcon = document.getElementById('playPauseIcon');
+                        const playerStatus = document.getElementById('playerStatus');
+                        
+                        if (playPauseIcon) playPauseIcon.className = 'fas fa-play';
+                        if (playerStatus) playerStatus.textContent = 'Stopped';
+                        clearInterval(updateInterval);
+                    },
+                    onend: function() {
+                        console.log('Playback ended');
+                        isPlaying = false;
+                        const playPauseIcon = document.getElementById('playPauseIcon');
+                        const playerStatus = document.getElementById('playerStatus');
+                        
+                        if (playPauseIcon) playPauseIcon.className = 'fas fa-play';
+                        if (playerStatus) playerStatus.textContent = 'Ended';
+                        clearInterval(updateInterval);
+                        
+                        // Play next song in queue
+                        playNextSong();
+                    },
+                    onloaderror: function(id, error) {
+                        console.error('Load error:', error);
+                        playerStatus.textContent = 'Error loading audio';
+                        // Try to reconnect after delay
+                        setTimeout(initAudio, 5000);
+                    },
+                    onplayerror: function() {
+                        console.error('Play error');
+                        playerStatus.textContent = 'Playback error';
+                        // Show fallback UI
+                        audioFallback.classList.remove('d-none');
+                    }
+                });
+                
+                // Try to start playback
+                startPlayback();
+            };
+            
+            // Start playback with user interaction
+            const startPlayback = () => {
+                if (!sound) return;
+                
+                // On mobile, we need user interaction to start audio
+                const playPromise = sound.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log('Autoplay prevented, showing fallback');
+                        audioFallback.classList.remove('d-none');
+                    });
+                }
+            };
+            
+            // Toggle play/pause
+            const togglePlayPause = () => {
+                if (!sound) return;
+                
+                if (isPlaying) {
+                    sound.pause();
+                } else {
+                    startPlayback();
+                }
+            };
+            
+            // Initialize audio player
+            // Play/pause button is now handled by event delegation
+            // Handle play/pause button click using event delegation
+            $(document).on('click', '#playPauseBtn', function() {
+                togglePlayback();
+            });
+            
+            // Manual play button for autoplay restrictions
+            const startPlaybackBtn = document.getElementById('startPlayback');
+            if (startPlaybackBtn) {
+                startPlaybackBtn.addEventListener('click', () => {
+                    if (sound) {
+                        sound.play();
+                        const audioFallback = document.getElementById('audioFallback');
+                        if (audioFallback) audioFallback.classList.add('d-none');
+                    }
+                });
+            }
+            
+            // Re-initialize audio when window gains focus (helps with autoplay restrictions)
+            window.addEventListener('focus', () => {
+                if (sound && !isPlaying) {
+                    initAudio();
+                }
+            });
+
+            // Refresh queue every 10 seconds
+            setInterval(refreshQueue, 10000);
+            
+            // Initial load
+            refreshQueue();
+        });
+
+        function searchSongs(query) {
+            // Show loading state
+            const $searchButton = $('#searchButton');
+            const $searchButtonText = $('#searchButtonText');
+            const $searchSpinner = $('#searchSpinner');
+            const $searchError = $('#searchError');
+            const $resultsContainer = $('#resultsContainer');
+            const $searchResults = $('#searchResults');
+            
+            $searchButton.prop('disabled', true);
+            $searchButtonText.addClass('d-none');
+            $searchSpinner.removeClass('d-none');
+            $searchError.addClass('d-none');
+            
+            // Clear previous results
+            $resultsContainer.empty();
+            $searchResults.addClass('d-none');
+            $resultsContainer.html('<div class="text-center p-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Searching for songs...</p></div>');
+            $('#searchResults').removeClass('d-none');
+            $('#requestForm').addClass('d-none');
+            
+            $.ajax({
+                url: '/Song/Search',
+                type: 'POST',
+                data: { query: query },
+                success: function(response) {
+                    console.log('Search response:', response); // Debug log
+                    $resultsContainer.empty();
+                    
+                    if (response.success && response.results && response.results.length > 0) {
+                        // Show search results
+                        response.results.forEach(function(result) {
+                            const title = escapeHtml(result.snippet?.title || result.title || 'Unknown Title');
+                            const videoId = result.id?.videoId || result.youtubeVideoId;
+                            
+                            if (!videoId) return; // Skip if no video ID
+                            
+                            const item = `
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>${title}</span>
+                                        <button class="btn btn-sm btn-success add-to-queue" 
+                                                data-video-id="${videoId}"
+                                                data-title="${title.replace(/"/g, '&quot;')}">
+                                            <i class="fas fa-plus"></i> Add to Queue
+                                        </button>
+                                    </div>
+                                </div>`;
+                            $resultsContainer.append(item);
+                        });
+                        
+                        // Add click handler for the new buttons
+                        $('.add-to-queue').on('click', function() {
+                            const videoId = $(this).data('video-id');
+                            const title = $(this).data('title');
+                            showRequestForm(videoId, title);
+                        });
+                        
+                        $searchResults.removeClass('d-none');
+                    } else {
+                        $searchError.text(response.message || 'No results found. Please try a different search term.').removeClass('d-none');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Search error:', error, xhr.responseText);
+                    $searchError.text('An error occurred while searching: ' + (xhr.responseJSON?.message || error || 'Unknown error')).removeClass('d-none');
+                },
+                complete: function() {
+                    // Reset button state
+                    $searchButton.prop('disabled', false);
+                    $searchButtonText.removeClass('d-none');
+                    $searchSpinner.addClass('d-none');
+                    
+                    // Scroll to results if any
+                    if (!$searchResults.hasClass('d-none')) {
+                        $('html, body').animate({
+                            scrollTop: $searchResults.offset().top - 20
+                        }, 300);
+                    }
+                }
+            });
+        }
+
+        function showRequestForm(videoId, title) {
+            // If videoId is an object (when called from direct click), extract values
+            if (typeof videoId === 'object') {
+                const data = videoId;
+                videoId = data.videoId || '';
+                title = data.title || '';
+            }
+            
+            $('#youtubeVideoId').val(videoId);
+            $('#songTitle').val(title);
+            
+            // Pre-fill the title in the form
+            if (title) {
+                const $noteField = $('#note');
+                if ($noteField.val() === '') {
+                    $noteField.val(`Requested: ${title}`);
+                }
+            }
+            
+            $('#searchResults').addClass('d-none');
+            $('#requestForm').removeClass('d-none');
+            $('#requesterName').focus();
+            
+            // Scroll to the form
+            $('html, body').animate({
+                scrollTop: $('#requestForm').offset().top - 20
+            }, 300);
+        }
+
+        function requestSong(videoId, title, requesterName = '', note = '') {
+            console.log(`Requesting song: ${title} (${videoId})`);
+            
+            // If called with parameters, use them directly
+            if (videoId && title) {
+                // If called with an object (from search results)
+                if (typeof videoId === 'object') {
+                    const data = videoId;
+                    videoId = data.videoId || '';
+                    title = data.title || '';
+                    requesterName = data.requesterName || $('#requesterName').val() || 'Anonymous';
+                    note = data.note || $('#note').val() || '';
+                }
+            } else {
+                // Get values from form
+                videoId = $('#youtubeVideoId').val();
+                title = $('#songTitle').val();
+                requesterName = $('#requesterName').val() || 'Anonymous';
+                note = $('#note').val() || '';
+            }
+            
+            if (!videoId || !title) {
+                showToast('Invalid song information', 'error');
+                return;
+            }
+            
+            // Show loading state
+            const $submitButton = $('#songRequestForm button[type="submit"]');
+            const originalButtonText = $submitButton.html();
+            $submitButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...');
+            
+            $.ajax({
+                url: '/Song/RequestSong',
+                type: 'POST',
+                data: {
+                    youtubeVideoId: videoId,
+                    title: title,
+                    requesterName: requesterName,
+                    note: note
+                },
+                success: function(response) {
+                    console.log('RequestSong response:', response);
+                    
+                    if (response.success) {
+                        showToast('🎵 ' + title + ' added to queue!', 'success');
+                        $('#songRequestForm')[0].reset();
+                        $('#requestForm').addClass('d-none');
+                        refreshQueue();
+                        
+                        // Try to auto-play if nothing is playing
+                        if (!window.currentlyPlaying) {
+                            setTimeout(function() {
+                                refreshQueue(); // Refresh again to check if song started playing
+                            }, 1000);
+                        }
+                    } else {
+                        showToast(response.message || 'Failed to add song to queue', 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('RequestSong error:', error);
+                    console.error('Response:', xhr.responseText);
+                    let errorMessage = 'Failed to add song to queue';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage += ': ' + xhr.responseJSON.message;
+                    }
+                    showToast(errorMessage, 'error');
+                },
+                complete: function() {
+                    // Reset button state
+                    $submitButton.prop('disabled', false).html(originalButtonText);
+                }
+            });
+        }
+
+        function updateQueueUI(data) {
+            console.log('Updating queue UI with data:', data);
+            
+            // Update currently playing
+            if (data.currentlyPlaying) {
+                const currentSong = data.currentlyPlaying;
+                $('#currentSongTitle').text(currentSong.title);
+                $('#currentSongArtist').text(currentSong.requesterName || 'Unknown');
+                
+                // Format duration
+                const duration = currentSong.duration || 0;
+                const minutes = Math.floor(duration / 60);
+                const seconds = Math.floor(duration % 60);
+                const durationText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                
+                $('#currentSongDuration').text(durationText);
+                $('#nowPlayingSection').show();
+                $('#nothingPlaying').hide();
+                console.log('Now playing:', currentSong.title);
+                
+                // Update the audio player if needed
+                const audioUrl = currentSong.audioUrl || `http://localhost:8087/stream/${currentSong.youtubeVideoId}`;
+                if (!currentSongId || currentSongId !== currentSong.youtubeVideoId) {
+                    loadAndPlayAudio(audioUrl, currentSong.youtubeVideoId);
+                }
+            } else {
+                $('#nowPlayingSection').hide();
+                $('#nothingPlaying').show();
+                console.log('Nothing currently playing');
+                
+                // Stop any currently playing audio
+                if (sound) {
+                    sound.stop();
+                    sound = null;
+                    currentSongId = null;
+                    isPlaying = false;
+                    updatePlayPauseButton();
+                }
+            }
+
+            // Update queue
+            var queueList = $('#queueList');
+            queueList.empty();
+            
+            if (data.upNext && data.upNext.length > 0) {
+                console.log(`Queue has ${data.upNext.length} songs`);
+                data.upNext.forEach(function(song) {
+                    queueList.append('<li class="list-group-item">' + 
+                        '<strong>' + song.title + '</strong> - ' + song.artist +
+                        ' <button class="btn btn-sm btn-danger float-right remove-song" data-video-id="' + song.youtubeVideoId + '">Remove</button>' +
+                        '</li>');
+                });
+                
+                // Attach remove handlers
+                $('.remove-song').click(function() {
+                    var videoId = $(this).data('video-id');
+                    console.log('Remove button clicked for:', videoId);
+                    removeSongFromQueue(videoId);
+                });
+            } else {
+                console.log('Queue is empty');
+                queueList.append('<li class="list-group-item text-muted">No songs in queue</li>');
+            }
+        }
+        
+        function refreshQueue() {
+            console.log('Refreshing queue...');
+            
+            $.get('/Song/GetQueueStatus')
+                .done(function(data) {
+                    console.log('Queue status received:', data);
+                    updateQueueUI(data);
+                    
+                    // Update the queue list
+                    const queueList = $('#queueList');
+                    queueList.empty();
+                    
+                    if (data.queue && data.queue.length > 0) {
+                        data.queue.forEach(function(song, index) {
+                            const duration = song.duration || 0;
+                            const minutes = Math.floor(duration / 60);
+                            const seconds = Math.floor(duration % 60);
+                            const durationText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                            
+                            const item = `
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>${song.title || 'Unknown'}</strong>
+                                        <div class="small text-muted">
+                                            ${song.requesterName || 'Anonymous'} • ${durationText}
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-danger remove-song" data-video-id="${song.youtubeVideoId}">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </li>`;
+                            queueList.append(item);
+                        });
+                        
+                        // Add click handlers for remove buttons
+                        $('.remove-song').off('click').on('click', function() {
+                            const videoId = $(this).data('video-id');
+                            removeSongFromQueue(videoId);
+                        });
+                    } else {
+                        queueList.append('<li class="list-group-item text-muted">The queue is empty</li>');
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Failed to refresh queue:', error);
+                    console.error('Response:', xhr.responseText);
+                    showToast('Failed to refresh queue', 'error');
+                });
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = bootstrap.Toast.getInstance(document.getElementById('statusToast'));
+            const toastBody = $('.toast-body');
+            const toastHeader = $('.toast-header');
+            
+            // Set message and style
+            toastBody.text(message);
+            
+            // Update header color based on message type
+            toastHeader.removeClass('bg-primary bg-success bg-danger bg-warning');
+            if (type === 'success') {
+                toastHeader.addClass('bg-success text-white');
+            } else if (type === 'danger') {
+                toastHeader.addClass('bg-danger text-white');
+            } else if (type === 'warning') {
+                toastHeader.addClass('bg-warning text-dark');
+            } else {
+                toastHeader.addClass('bg-primary text-white');
+            }
+            
+            // Show the toast
+            toast.show();
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return $('<div>').text(unsafe).html();
+        }
+        
+        function removeSongFromQueue(videoId) {
+            console.log(`Removing song from queue: ${videoId}`);
+            
+            if (!videoId) return;
+            
+            $.ajax({
+                url: '/Song/RemoveSong',
+                type: 'POST',
+                data: { youtubeVideoId: videoId },
+                success: function(response) {
+                    console.log('RemoveSong response:', response);
+                    
+                    if (response.success) {
+                        showToast('Song removed from queue', 'success');
+                        refreshQueue();
+                    } else {
+                        showToast(response.error || 'Failed to remove song from queue', 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('RemoveSong error:', error);
+                    console.error('Response:', xhr.responseText);
+                    showToast('Failed to remove song from queue', 'error');
+                }
+            });
+        }
+    </script>
+}

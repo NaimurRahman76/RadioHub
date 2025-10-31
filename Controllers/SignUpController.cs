@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using RadioStation.Data;
 using RadioStation.Models;
 using RadioStation.Repository;
@@ -28,7 +28,8 @@ namespace RadioStation.Controllers
 			if (!ModelState.IsValid)
 			{
 				// check if the error is related to the ConfirmPassword field
-				var confirmPassError = ModelState["ConfirmPassword"].Errors.FirstOrDefault();
+				var confirmPassErrors = ModelState["ConfirmPassword"]?.Errors;
+				var confirmPassError = confirmPassErrors?.FirstOrDefault();
 
 				if (confirmPassError != null)
 				{

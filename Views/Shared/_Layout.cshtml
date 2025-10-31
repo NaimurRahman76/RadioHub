@@ -76,6 +76,9 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Song" asp-action="Index">Music Player</a>
+                        </li>
                         <div class="container float-end">
                            
                             @if(Context.Session==null || Context.Session.GetInt32("userId")==null)
@@ -104,7 +107,7 @@
                                 else
                                 {
                                 <li class="nav-item float-end">
-                                    <a class=" btn btn-primary mx-3 " asp-area="" asp-controller="Home" asp-action="Favourite" asp-route-id="@Context.Session.GetInt32("userId")">Favourite Radio</a>
+                                    <a class=" btn btn-primary mx-3 " asp-area="" asp-controller="Home" asp-action="Favourite" asp-route-id="@(Context.Session?.GetInt32("userId") ?? 0)">Favourite Radio</a>
                                 </li>
                                 }
                             } 

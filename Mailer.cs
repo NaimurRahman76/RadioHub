@@ -1,4 +1,4 @@
-﻿using System.Net.Mail;
+using System.Net.Mail;
 using System.Net;
 
 namespace RadioStation
@@ -26,9 +26,9 @@ namespace RadioStation
 
 					));
 			}
-			catch (Exception ex)
+			catch
 			{
-
+				return false;
 			}
 			
 			return true;

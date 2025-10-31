@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RadioStation.Models
 {
@@ -6,16 +6,16 @@ namespace RadioStation.Models
 	{
 		
 		[Required]
-		public string Name { get; set; }
+		public string Name { get; set; } = string.Empty;
 		[Required]
-		public string Email { get; set; }
+		public string Email { get; set; } = string.Empty;
 		[Required]
 		[DataType(DataType.Password)]
-		public string Password { get; set; }
+		public string Password { get; set; } = string.Empty;
 
 		[Required]
 		[Compare(nameof(Password), ErrorMessage = "The password and confirmation password do not match.")]
 		[DataType(DataType.Password)]
-		public string ConfirmPassword { get; set; }
+		public string ConfirmPassword { get; set; } = string.Empty;
 	}
 }

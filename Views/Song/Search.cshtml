@@ -1,0 +1,19 @@
+@{
+    ViewData["Title"] = "Search for a Song";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Search for a Song</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <form asp-action="Search" method="post">
+            <div class="form-group">
+                <label for="query">Song Title or Artist</label>
+                <input type="text" id="query" name="query" class="form-control" />
+            </div>
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+    </div>
+</div>
