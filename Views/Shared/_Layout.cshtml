@@ -15,6 +15,9 @@
     <link rel="canonical" href="@@(Request.Scheme)://@@(Request.Host)@@(Request.Path)" />
     <!-- Font Awesome Free (no account needed) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -89,7 +92,6 @@
                                 <li class="nav-item float-end">
                                     <a class="nav-link text-dark" asp-controller="Home" asp-action="Login">Login</a>
                                 </li>
-                                var res = Context.Session.GetString("userName");
                             }
                             else
                             {

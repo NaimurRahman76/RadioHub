@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using RadioStation.Models;
 
 namespace RadioStation.Data
@@ -11,6 +11,7 @@ namespace RadioStation.Data
         }
        public DbSet<Radio>Radios { get; set; }
 		public DbSet<User> Users { get; set; }
+		public DbSet<Song> Songs { get; set; }
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			modelBuilder.Entity<User>()

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RadioStation.Data;
 using RadioStation.Repository;
 using RadioStation.Services;
+using RadioStation.Hubs;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,21 +22,12 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30); // Set the session timeout duration
 });
 
-// Register the song queue and streaming services as singletons
-builder.Services.AddSingleton<SongQueueService>();
-builder.Services.AddSingleton(provider =>
-{
-    var config = provider.GetRequiredService<IConfiguration>();
-    var icecastUrl = config.GetValue<string>("Icecast:Url");
-    var icecastMountpoint = config.GetValue<string>("Icecast:Mountpoint");
-    var icecastPassword = config.GetValue<string>("Icecast:Password");
-    var logger = provider.GetRequiredService<ILogger<StreamingService>>();
-    return new StreamingService(icecastUrl, icecastMountpoint, icecastPassword, logger);
-});
-
-// Add the background service for playing songs
-builder.Services.AddHostedService<SongPlayerService>();
 builder.Services.AddSignalR();
+
+// Register the new song services
+builder.Services.AddScoped<ISongService, SongService>();
+builder.Services.AddScoped<IQueueService, QueueService>();
+builder.Services.AddSingleton<IStreamingService, StreamingService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -65,11 +57,8 @@ app.MapControllerRoute(
     pattern: "sitemap.xml",
     defaults: new { controller = "Home", action = "SitemapXml" });
 
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapHub<RadioHub>("/radioHub");
-    // ... other endpoints
-});
+
+app.MapHub<RadioHub>("/radiohub");
 
 app.MapControllerRoute(
 	name: "default",

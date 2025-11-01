@@ -1,19 +1,157 @@
 @{
-    ViewData["Title"] = "Search for a Song";
+    ViewData["Title"] = "Search Results";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Search for a Song</h1>
-</div>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Search Results</h5>
+                    <a href="/Song" class="btn btn-outline-secondary">Back to Player</a>
+                </div>
+                <div class="card-body">
+                    <!-- Search Form -->
+                    <div class="mb-4">
+                        <form asp-action="Search" method="post">
+                            <div class="input-group">
+                                <input type="text" name="query" class="form-control" placeholder="Enter song name or artist..." value="@ViewData["query"]" />
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
+                    </div>
 
-<div class="row">
-    <div class="col-md-6 offset-md-3">
-        <form asp-action="Search" method="post">
-            <div class="form-group">
-                <label for="query">Song Title or Artist</label>
-                <input type="text" id="query" name="query" class="form-control" />
+                    <!-- Search Results -->
+                    @{
+                        var searchResults = ViewData.Model as IEnumerable<RadioStation.Models.SongSearchResult>;
+                    }
+                    @if (searchResults != null && searchResults.Any())
+                    {
+                        <div class="row">
+                            @foreach (var song in searchResults)
+                            {
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="row g-0">
+                                            <div class="col-md-4">
+                                                @if (!string.IsNullOrEmpty(song.ThumbnailUrl))
+                                                {
+                                                    <img src="@song.ThumbnailUrl" class="img-fluid rounded-start h-100" style="object-fit: cover;" alt="@song.Title thumbnail">
+                                                }
+                                                else
+                                                {
+                                                    <div class="bg-secondary d-flex align-items-center justify-content-center h-100">
+                                                        <i class="bi bi-music-note text-white" style="font-size: 2rem;"></i>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="col-md-8">
+                                                <div class="card-body">
+                                                    <h6 class="card-title">@song.Title</h6>
+                                                    <p class="card-text text-muted small">@song.Artist</p>
+                                                    <p class="card-text"><small class="text-muted">Duration: @song.Duration</small></p>
+                                                    <button class="btn btn-primary btn-sm" onclick="showRequestModal('@song.VideoId', '@song.Title', '@song.Artist')">
+                                                        Request Song
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(ViewData["query"]?.ToString()))
+                    {
+                        <div class="alert alert-info">
+                            No results found for "@ViewData["query"]". Please try a different search term.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            Enter a search term above to find songs.
+                        </div>
+                    }
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Search</button>
-        </form>
+        </div>
     </div>
 </div>
+
+<!-- Request Song Modal -->
+<div class="modal fade" id="requestSongModal" tabindex="-1" aria-labelledby="requestSongModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="requestSongModalLabel">Request Song</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You're requesting: <strong id="modalSongTitle"></strong> by <strong id="modalSongArtist"></strong></p>
+                <div class="mb-3">
+                    <label for="requesterName" class="form-label">Your Name</label>
+                    <input type="text" class="form-control" id="requesterName" placeholder="Enter your name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmRequestBtn">Request Song</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let currentVideoId = '';
+        let currentTitle = '';
+        let currentArtist = '';
+
+        function showRequestModal(videoId, title, artist) {
+            currentVideoId = videoId;
+            currentTitle = title;
+            currentArtist = artist;
+            
+            document.getElementById('modalSongTitle').textContent = title;
+            document.getElementById('modalSongArtist').textContent = artist;
+            document.getElementById('requesterName').value = '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('requestSongModal'));
+            modal.show();
+        }
+
+        document.getElementById('confirmRequestBtn').addEventListener('click', function() {
+            const requesterName = document.getElementById('requesterName').value.trim();
+            
+            if (!requesterName) {
+                alert('Please enter your name to request a song.');
+                return;
+            }
+
+            requestSong(currentVideoId, currentTitle, currentArtist, requesterName);
+            
+            const modal = bootstrap.Modal.getInstance(document.getElementById('requestSongModal'));
+            modal.hide();
+        });
+
+        function requestSong(videoId, title, artist, requesterName) {
+            $.post('/Song/RequestSong', {
+                videoId: videoId,
+                title: title,
+                artist: artist,
+                requesterName: requesterName
+            })
+            .done(function(response) {
+                if (response.success) {
+                    alert('Song added to queue successfully!');
+                } else {
+                    alert(response.message || 'Failed to add song to queue.');
+                }
+            })
+            .fail(function() {
+                alert('An error occurred while requesting the song.');
+            });
+        }
+    </script>
+}

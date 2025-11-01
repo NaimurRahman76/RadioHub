@@ -18,6 +18,11 @@
     <PackageReference Include="YoutubeExplode" Version="6.5.6" />
     <PackageReference Include="YoutubeExplode.Converter" Version="6.5.6" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="AudioFiles\" />
   </ItemGroup>
 
 </Project>
