@@ -1,47 +1,48 @@
-@{
+﻿@{
     ViewData["Title"] = "Radio Hub";
 }
 
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-8">
-            <!-- Search Section -->
+            <!-- Player Section -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5>Search for Songs</h5>
+                    <h5>🎵 Now Playing</h5>
                 </div>
-                <div class="card-body">
-                    <div class="input-group mb-3">
-                        <input type="text" id="searchQuery" class="form-control" placeholder="Enter song name or artist..." />
-                        <button class="btn btn-primary" id="searchButton">Search</button>
+                <div class="card-body text-center">
+                    <!-- Now Playing Info -->
+                    <div id="nowPlaying" class="mb-3">
+                        <p class="text-muted">No song is currently playing</p>
                     </div>
-                    <div id="searchResults" class="row">
-                        <!-- Search results will be populated here -->
+
+                    <!-- Visualizer -->
+                    <canvas id="visualizer" width="600" height="100" style="width: 100%; background: #f8f9fa; border-radius: 5px;"></canvas>
+
+                    <!-- Live Stream Button -->
+                    <div class="mt-3">
+                        <button id="listenLiveBtn" class="btn btn-success btn-lg">
+                            <i class="bi bi-broadcast"></i> Listen Live
+                        </button>
+                        <p class="text-muted small mt-2">Click to start the live radio broadcast</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Player Section -->
+            <!-- Search Section -->
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5>Now Playing</h5>
+                    <h5>🔍 Search for Songs</h5>
                 </div>
                 <div class="card-body">
-                    <div id="nowPlaying" class="text-center mb-3">
-                        <p class="mb-1">No song is currently playing</p>
+                    <div class="input-group mb-3">
+                        <input type="text" id="searchQuery" class="form-control" placeholder="Enter song name or artist..." />
+                        <button class="btn btn-primary" id="searchButton">
+                            <i class="bi bi-search"></i> Search
+                        </button>
                     </div>
-                    
-                    <!-- Audio Player -->
-                    <div class="audio-player mb-3">
-                        <audio id="audioPlayer" controls class="w-100" style="display: none;"></audio>
-                        <div id="waveform" class="mb-3"></div>
-                        <div class="d-flex align-items-center mb-3">
-                            <button id="playPauseBtn" class="btn btn-primary me-3">Play</button>
-                            <div class="progress flex-grow-1" id="progressBar">
-                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-                            </div>
-                            <span id="timeDisplay" class="ms-3">0:00 / 0:00</span>
-                        </div>
+                    <div id="searchResults" class="row">
+                        <!-- Search results will be populated here -->
                     </div>
                 </div>
             </div>
@@ -51,18 +52,16 @@
             <!-- Queue Section -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>Queue</h5>
-                    <div>
-                        <button id="clearQueueBtn" class="btn btn-sm btn-outline-danger">Clear</button>
-                    </div>
+                    <h5>📋 Queue</h5>
+                    <button id="clearQueueBtn" class="btn btn-sm btn-outline-danger">Clear</button>
                 </div>
                 <div class="card-body">
-                    <div id="queueStatus" class="mb-3">
-                        <p class="mb-1">Total songs: <span id="totalSongs">0</span></p>
-                        <p class="mb-0">Status: <span id="playingStatus">Not playing</span></p>
+                    <div id="queueStatus" class="mb-3 p-3 bg-light rounded">
+                        <p class="mb-1"><strong>Total songs:</strong> <span id="totalSongs" class="badge bg-primary">0</span></p>
+                        <p class="mb-0"><strong>Status:</strong> <span id="playingStatus" class="badge bg-secondary">Not playing</span></p>
                     </div>
-                    <div id="songQueue" class="list-group">
-                        <!-- Queue items will be populated here -->
+                    <div id="songQueue" class="list-group" style="max-height: 500px; overflow-y: auto;">
+                        <!-- Queue items populated here -->
                     </div>
                 </div>
             </div>
@@ -70,425 +69,320 @@
     </div>
 </div>
 
-@section Scripts {
-    <!-- HTML5 audio will be used instead of external libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
-    <script>
-        // Global variables
-        let audioPlayer = null;
-        let connection = null;
-        let isPlaying = false;
-        let currentSong = null;
-        let queue = [];
-        let currentlyPlaying = null;
-
-        // Initialize the application
-        $(document).ready(function () {
-            // Initialize audio player first
-            audioPlayer = document.getElementById('audioPlayer');
-            
-            initializeSignalR();
-            setupAudioPlayer();
-            loadQueueStatus();
-            setupEventHandlers();
-        });
-
-        // Setup event handlers
-        function setupEventHandlers() {
-            $('#searchButton').click(searchSongs);
-            $('#searchQuery').keypress(function (e) {
-                if (e.which === 13) {
-                    searchSongs();
-                }
-            });
-            
-            $('#playPauseBtn').click(togglePlayback);
-            $('#clearQueueBtn').click(clearQueue);
-        }
-
-        // Initialize SignalR connection
-        function initializeSignalR() {
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl('/radioHub')
-                .build();
-
-            connection.on('UpdateQueue', function (queueViewModel) {
-                updateQueueDisplay(queueViewModel);
-            });
-
-            connection.on('SongStarted', function (song) {
-                playSong(song);
-            });
-
-            connection.on('SongStopped', function () {
-                stopCurrentSong();
-            });
-
-            connection.start().catch(function (err) {
-                return console.error(err.toString());
-            });
-        }
-
-        // Setup audio player with HTML5 audio
-        function setupAudioPlayer() {
-            // Audio player event handlers
-            audioPlayer.addEventListener('loadedmetadata', function() {
-                updateDuration();
-            });
-            
-            audioPlayer.addEventListener('timeupdate', function() {
-                updateProgress();
-            });
-            
-            audioPlayer.addEventListener('ended', function() {
-                isPlaying = false;
-                updatePlayPauseButton();
-                playNextSong();
-            });
-
-            // Progress bar click handler
-            $('#progressBar').click(function (e) {
-                if (audioPlayer) {
-                    const progressBar = $(this);
-                    const position = (e.pageX - progressBar.offset().left) / progressBar.width();
-                    const seekTime = position * audioPlayer.duration;
-                    
-                    audioPlayer.currentTime = seekTime;
-                    
-                    // Update time display immediately
-                    const timeDisplay = document.getElementById('timeDisplay');
-                    timeDisplay.textContent = `${formatTime(seekTime)} / ${formatTime(audioPlayer.duration)}`;
-                }
-            });
-        }
-
-        // Search for songs
-        function searchSongs() {
-            const query = $('#searchQuery').val().trim();
-            if (!query) return;
-
-            $('#searchButton').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Searching...');
-
-            $.post('/Song/Search', { query: query })
-                .done(function (response) {
-                    if (response.success === false) {
-                        alert(response.message || 'Error searching for songs.');
-                    } else {
-                        displaySearchResults(response.results);
-                    }
-                })
-                .fail(function () {
-                    alert('Error searching for songs. Please try again.');
-                })
-                .always(function () {
-                    $('#searchButton').prop('disabled', false).text('Search');
-                });
-        }
-
-        // Display search results
-        function displaySearchResults(results) {
-            const searchResults = $('#searchResults');
-            searchResults.empty();
-
-            if (results.length === 0) {
-                searchResults.html('<p class="col-12">No results found.</p>');
-                return;
-            }
-
-            results.forEach(function (result) {
-                const resultCard = `
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100">
-                            <img src="${result.thumbnailUrl}" class="card-img-top" alt="${result.title}" style="height: 120px; object-fit: cover;">
-                            <div class="card-body p-2">
-                                <h6 class="card-title">${result.title}</h6>
-                                <p class="card-text small text-muted">${result.channelTitle} - ${result.durationDisplay}</p>
-                                <button class="btn btn-sm btn-primary w-100" onclick="requestSong('${result.videoId}', '${result.title.replace(/'/g, "\\'")}')">Add to Queue</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                searchResults.append(resultCard);
-            });
-        }
-
-        // Request a song
-        function requestSong(videoId, title) {
-            // Store song details for the modal
-            $('#requestModalVideoId').val(videoId);
-            $('#requestModalTitle').val(title);
-            $('#requestModalSongTitle').text(title);
-            $('#requesterName').val('');
-            $('#requestModal').modal('show');
-        }
-        
-        // Confirm song request
-        function confirmRequest() {
-            const videoId = $('#requestModalVideoId').val();
-            const title = $('#requestModalTitle').val();
-            const requesterName = $('#requesterName').val().trim();
-            
-            if (!requesterName) {
-                $('#requesterNameError').show();
-                return;
-            }
-            
-            $('#requesterNameError').hide();
-            $('#requestModal').modal('hide');
-            
-            $.post('/Song/RequestSong', { videoId: videoId, title: title, requesterName: requesterName })
-                .done(function () {
-                    alert(`"${title}" has been added to the queue!`);
-                    loadQueueStatus();
-                })
-                .fail(function () {
-                    alert('Error adding song to queue. Please try again.');
-                });
-        }
-
-        // Load queue status
-        function loadQueueStatus() {
-            $.get('/Song/GetQueueStatus')
-                .done(function (queueViewModel) {
-                    updateQueueDisplay(queueViewModel);
-                })
-                .fail(function () {
-                    console.error('Error loading queue status');
-                });
-        }
-
-        // Update queue display
-        function updateQueueDisplay(queueViewModel) {
-            queue = queueViewModel.queue || [];
-            currentlyPlaying = queueViewModel.currentlyPlaying;
-
-            // Update queue status
-            $('#totalSongs').text(queueViewModel.totalSongs);
-            $('#playingStatus').text(queueViewModel.isPlaying ? 'Playing' : 'Not playing');
-
-            // Update now playing
-            const nowPlayingDiv = $('#nowPlaying');
-            if (currentlyPlaying) {
-                nowPlayingDiv.html(`
-                    <h6>${currentlyPlaying.title}</h6>
-                    <p class="mb-0">Requested by: ${currentlyPlaying.requesterName}</p>
-                `);
-                
-                // If there's a currently playing song but it's not loaded in the audio player, load it
-                if (!audioPlayer.src || !audioPlayer.src.includes(currentlyPlaying.youtubeVideoId)) {
-                    playSong(currentlyPlaying);
-                }
-            } else {
-                nowPlayingDiv.html('<p class="mb-1">No song is currently playing</p>');
-                
-                // If there's no currently playing song but there are songs in the queue, play the next one
-                if (queue.length > 0 && !isPlaying) {
-                    playNextSong();
-                }
-            }
-
-            // Update queue list
-            const songQueue = $('#songQueue');
-            songQueue.empty();
-
-            if (queue.length === 0) {
-                songQueue.html('<p class="text-muted">The queue is empty.</p>');
-                return;
-            }
-
-            queue.forEach(function (song, index) {
-                const queueItem = `
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">${song.title}</h6>
-                            <small class="text-muted">Requested by: ${song.requesterName}</small>
-                        </div>
-                        <button class="btn btn-sm btn-outline-danger" onclick="removeSong('${song.youtubeVideoId}')">Remove</button>
-                    </div>
-                `;
-                songQueue.append(queueItem);
-            });
-        }
-
-        // Play a song
-        function playSong(song) {
-            currentSong = song;
-            
-            // Update now playing display
-            $('#nowPlaying').html(`
-                <h6>${song.title}</h6>
-                <p class="mb-0">Requested by: ${song.requesterName}</p>
-            `);
-
-            // Load and play the song
-            const audioUrl = `/Song/Stream/${song.youtubeVideoId}`;
-            
-            // Show the audio player and load the song
-            audioPlayer.style.display = 'block';
-            audioPlayer.src = audioUrl;
-            
-            // Play the song when it's loaded
-            audioPlayer.addEventListener('canplay', function() {
-                audioPlayer.play();
-                isPlaying = true;
-                updatePlayPauseButton();
-            }, { once: true });
-        }
-
-        // Stop current song
-        function stopCurrentSong() {
-            if (audioPlayer) {
-                audioPlayer.pause();
-                audioPlayer.currentTime = 0;
-                audioPlayer.src = '';
-                audioPlayer.style.display = 'none';
-            }
-
-            currentSong = null;
-            isPlaying = false;
-            updatePlayPauseButton();
-            
-            // Update now playing display
-            $('#nowPlaying').html('<p class="mb-1">No song is currently playing</p>');
-        }
-
-        // Toggle playback
-        function togglePlayback() {
-            if (!audioPlayer || !audioPlayer.src) {
-                // If no song is loaded, try to play the first song in queue
-                if (queue.length > 0) {
-                    playNextSong();
-                }
-                return;
-            }
-
-            if (isPlaying) {
-                audioPlayer.pause();
-                isPlaying = false;
-            } else {
-                audioPlayer.play();
-                isPlaying = true;
-            }
-            
-            updatePlayPauseButton();
-        }
-
-        // Play next song
-        function playNextSong() {
-            $.post('/Song/PlayNextSong')
-                .done(function () {
-                    loadQueueStatus();
-                })
-                .fail(function () {
-                    console.error('Error playing next song');
-                });
-        }
-
-        // Remove song from queue
-        function removeSong(videoId) {
-            $.post('/Song/RemoveSong', { videoId: videoId })
-                .done(function () {
-                    loadQueueStatus();
-                })
-                .fail(function () {
-                    alert('Error removing song from queue. Please try again.');
-                });
-        }
-
-        // Clear queue
-        function clearQueue() {
-            if (confirm('Are you sure you want to clear the entire queue?')) {
-                $.post('/Song/ClearQueue')
-                    .done(function () {
-                        loadQueueStatus();
-                    })
-                    .fail(function () {
-                        alert('Error clearing queue. Please try again.');
-                    });
-            }
-        }
-
-        // Update play/pause button
-        function updatePlayPauseButton() {
-            const playPauseBtn = $('#playPauseBtn');
-            playPauseBtn.text(isPlaying ? 'Pause' : 'Play');
-        }
-
-        // Update progress
-          function updateProgress() {
-              if (!audioPlayer || !audioPlayer.duration) return;
-  
-              const currentTime = audioPlayer.currentTime || 0;
-              const duration = audioPlayer.duration || 0;
-              const progressBar = $('.progress-bar');
-              const timeDisplay = document.getElementById('timeDisplay');
-  
-              // Update progress bar
-              if (duration > 0) {
-                  progressBar.css('width', ((currentTime / duration) * 100) + '%');
-              }
-  
-              // Update time display
-              timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-          }
-          
-          // Update duration display
-          function updateDuration() {
-              if (!audioPlayer || !audioPlayer.duration) return;
-              const timeDisplay = document.getElementById('timeDisplay');
-              timeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`;
-          }
-
-        // Format time helper function
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return '0:00';
-            
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = Math.floor(seconds % 60);
-            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-        }
-
-        // Start progress update when song starts playing
-        setInterval(function() {
-            if (isPlaying) {
-                updateProgress();
-            }
-        }, 100);
-    </script>
-}
-
 <!-- Request Song Modal -->
-<div class="modal fade" id="requestModal" tabindex="-1" aria-labelledby="requestModalLabel" aria-hidden="true">
+<div class="modal fade" id="requestModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="requestModalLabel">Request Song</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">🎵 Request Song</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p>You're requesting: <strong id="requestModalSongTitle"></strong></p>
                 <div class="mb-3">
                     <label for="requesterName" class="form-label">Your Name:</label>
-                    <input type="text" class="form-control" id="requesterName" placeholder="Enter your name">
+                    <input type="text" class="form-control" id="requesterName" placeholder="Enter your name" required>
                     <div class="invalid-feedback" id="requesterNameError" style="display: none;">
                         Please enter your name.
                     </div>
+                </div>
+                <div class="mb-3">
+                    <label for="requesterNote" class="form-label">Message/Note (optional):</label>
+                    <textarea class="form-control" id="requesterNote" placeholder="Write a note to the DJ"></textarea>
                 </div>
                 <input type="hidden" id="requestModalVideoId">
                 <input type="hidden" id="requestModalTitle">
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmRequestBtn">Request Song</button>
+                <button type="button" class="btn btn-primary" id="confirmRequestBtn">
+                    <i class="bi bi-check-circle"></i> Request Song
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-    $(document).ready(function() {
-        $('#confirmRequestBtn').click(function() {
-            confirmRequest();
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+    <script>
+        // Global variables
+        let liveAudioPlayer = null;
+        let isLivePlaying = false;
+        let connection = null;
+        let queue = [];
+        let currentlyPlaying = null;
+        const ICECAST_URL = 'http://localhost:8087/live';
+
+        // Initialize on page ready
+        $(document).ready(function() {
+            initializeSignalR();
+            setupEventHandlers();
         });
-    });
-</script>
+
+        // SignalR for queue updates
+        function initializeSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl('/radioHub')
+                .build();
+
+            connection.on('UpdateQueue', updateQueueDisplay);
+            connection.on('SongStarted', data => updateNowPlaying(data));
+            connection.on('SongEnded', data => currentlyPlaying = null);
+            connection.start().then(() => console.log('SignalR connected'))
+                      .catch(err => console.error(err));
+        }
+
+        // Event handlers
+        function setupEventHandlers() {
+            $('#listenLiveBtn').click(toggleLiveStream);
+            $('#searchButton').click(searchSongs);
+            $('#searchQuery').keypress(e => { if (e.which === 13) searchSongs(); });
+            $('#confirmRequestBtn').click(confirmRequest);
+            $('#requesterName').keypress(e => { if(e.which === 13) confirmRequest(); });
+            $('#clearQueueBtn').click(clearQueue);
+        }
+
+        // Live Stream Play/Stop
+        function toggleLiveStream() {
+            if (isLivePlaying) stopLiveStream();
+            else playLiveStream();
+        }
+
+        function playLiveStream() {
+            if (isLivePlaying) return;
+
+            liveAudioPlayer = new Audio(ICECAST_URL);
+            liveAudioPlayer.autoplay = true;
+
+            liveAudioPlayer.addEventListener('playing', () => isLivePlaying = true);
+            liveAudioPlayer.addEventListener('pause', () => isLivePlaying = false);
+            liveAudioPlayer.addEventListener('error', e => {
+                console.error('Stream error', e);
+                isLivePlaying = false;
+            });
+
+            liveAudioPlayer.play().catch(err => alert('Click the button to start live stream'));
+            updateLiveButton();
+            startVisualizer();
+        }
+
+        function stopLiveStream() {
+            if (!liveAudioPlayer) return;
+            liveAudioPlayer.pause();
+            liveAudioPlayer.src = '';
+            liveAudioPlayer.load();
+            isLivePlaying = false;
+            updateLiveButton();
+            stopVisualizer();
+        }
+
+        function updateLiveButton() {
+            const btn = $('#listenLiveBtn');
+            if (isLivePlaying) {
+                btn.html('<i class="bi bi-stop-fill"></i> Stop Live Stream').removeClass('btn-success').addClass('btn-danger');
+            } else {
+                btn.html('<i class="bi bi-broadcast"></i> Listen Live').removeClass('btn-danger').addClass('btn-success');
+            }
+        }
+
+        let canvas, ctx, animationId;
+        let audioContext, analyser, source;
+        let frequencyData;
+
+        function startVisualizer() {
+            if (!liveAudioPlayer) return;
+            canvas = document.getElementById('visualizer');
+            ctx = canvas.getContext('2d');
+
+            // Web Audio API setup
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Number of samples, smaller = smoother
+                frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+                source = audioContext.createMediaElementSource(liveAudioPlayer);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                analyser.getByteFrequencyData(frequencyData);
+
+                const bars = frequencyData.length;
+                const barWidth = canvas.width / bars;
+
+                for (let i = 0; i < bars; i++) {
+                    const value = frequencyData[i];
+                    const percent = value / 255;
+                    const barHeight = percent * canvas.height;
+
+                    const hue = 120 - percent * 120; // green to red
+                    ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
+                    ctx.shadowColor = `hsl(${hue}, 80%, 50%)`;
+                    ctx.shadowBlur = 10;
+
+                    ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+                }
+
+                animationId = requestAnimationFrame(draw);
+            }
+
+            draw();
+        }
+
+        function stopVisualizer() {
+            if (animationId) cancelAnimationFrame(animationId);
+            if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+
+        // Queue handling
+        function updateQueueDisplay(queueViewModel) {
+            queue = queueViewModel.queue || [];
+            currentlyPlaying = queueViewModel.currentlyPlaying;
+
+            $('#totalSongs').text(queueViewModel.totalSongs);
+            $('#playingStatus').text(queueViewModel.isPlaying ? 'Playing' : 'Not playing')
+                .removeClass('bg-success bg-secondary')
+                .addClass(queueViewModel.isPlaying ? 'bg-success' : 'bg-secondary');
+
+            updateNowPlaying(currentlyPlaying);
+
+            const songQueue = $('#songQueue');
+            songQueue.empty();
+            if (!queue.length) {
+                songQueue.html('<p class="text-muted text-center p-3">The queue is empty.</p>');
+                return;
+            }
+
+            queue.forEach((song, idx) => {
+                const item = `<div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                <span class="badge bg-secondary me-2">${idx+1}</span>
+                                <h6 class="mb-0">${song.title}</h6>
+                            </div>
+                            <small class="text-muted"><i class="bi bi-person"></i> ${song.requesterName} ${song.note ? '- ' + song.note : ''}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeSong('${song.youtubeVideoId}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>`;
+                songQueue.append(item);
+            });
+        }
+
+        function updateNowPlaying(song) {
+            const nowPlayingDiv = $('#nowPlaying');
+            if (!song) {
+                nowPlayingDiv.html('<p class="text-muted">No song is currently playing</p>');
+                return;
+            }
+            nowPlayingDiv.html(`
+                <h5 class="mb-1">${song.title}</h5>
+                <p class="mb-0 text-muted">
+                    <i class="bi bi-person-fill"></i> Requested by: ${song.requesterName}
+                    ${song.note ? '<br><i class="bi bi-chat-text"></i> Note: ' + song.note : ''}
+                </p>
+            `);
+        }
+
+        function searchSongs() {
+            const query = $('#searchQuery').val().trim();
+            if (!query) return;
+
+            $('#searchButton').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Searching...');
+            $.post('/Song/Search', { query })
+                .done(resp => resp.success === false ? alert(resp.message || 'Error') : displaySearchResults(resp.results))
+                .fail(() => alert('Error searching songs'))
+                .always(() => $('#searchButton').prop('disabled', false).html('<i class="bi bi-search"></i> Search'));
+        }
+
+        function displaySearchResults(results) {
+            const container = $('#searchResults');
+            container.empty();
+            if (!results.length) return container.html('<p class="text-center text-muted">No results found.</p>');
+
+            results.forEach(result => {
+                const card = `<div class="col-md-6 mb-3">
+                    <div class="card h-100 shadow-sm">
+                        <img src="${result.thumbnailUrl}" class="card-img-top" style="height:120px;object-fit:cover">
+                        <div class="card-body p-2">
+                            <h6 class="card-title text-truncate" title="${result.title}">${result.title}</h6>
+                            <p class="card-text small text-muted">${result.channelTitle} - ${result.durationDisplay}</p>
+                            <button class="btn btn-sm btn-primary w-100" onclick="requestSong('${result.videoId}', \`${result.title.replace(/`/g,'\\`')}\`)">
+                                <i class="bi bi-plus-circle"></i> Add to Queue
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+                container.append(card);
+            });
+        }
+
+        function requestSong(videoId, title) {
+            $('#requestModalVideoId').val(videoId);
+            $('#requestModalTitle').val(title);
+            $('#requestModalSongTitle').text(title);
+            $('#requesterName').val('');
+            $('#requesterNote').val('');
+            $('#requesterNameError').hide();
+            $('#requestModal').modal('show');
+        }
+
+        function confirmRequest() {
+            const videoId = $('#requestModalVideoId').val();
+            const title = $('#requestModalTitle').val();
+            const requesterName = $('#requesterName').val().trim();
+            const note = $('#requesterNote').val().trim();
+
+            if (!requesterName) return $('#requesterNameError').show();
+            $('#requesterNameError').hide();
+            $('#requestModal').modal('hide');
+
+            $.post('/Song/RequestSong', { videoId, title, requesterName, note })
+                .done(() => { showToast(`"${title}" added to queue!`, 'success'); $('#searchResults').empty(); $('#searchQuery').val(''); loadQueueStatus(); })
+                .fail(() => showToast('Error adding song', 'danger'));
+        }
+
+        function removeSong(videoId) {
+            if (!confirm('Remove this song from queue?')) return;
+            $.post('/Song/RemoveSong', { videoId })
+                .done(() => { showToast('Song removed from queue','info'); loadQueueStatus(); })
+                .fail(() => showToast('Error removing song','danger'));
+        }
+
+        function clearQueue() {
+            if (!confirm('Clear entire queue?')) return;
+            $.post('/Song/ClearQueue')
+                .done(() => { showToast('Queue cleared','info'); loadQueueStatus(); })
+                .fail(() => showToast('Error clearing queue','danger'));
+        }
+
+        function loadQueueStatus() {
+            $.get('/Song/GetQueueStatus')
+                .done(updateQueueDisplay)
+                .fail(() => console.error('Error loading queue'));
+        }
+
+        function showToast(message, type='success') {
+            const toastHtml = `<div class="toast align-items-center text-white bg-${type} border-0" role="alert" style="position:fixed;top:20px;right:20px;z-index:9999;">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>`;
+            $('body').append(toastHtml);
+            const toastEl = $('.toast').last()[0];
+            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            toast.show();
+            setTimeout(() => $(toastEl).remove(), 4000);
+        }
+    </script>
+}
