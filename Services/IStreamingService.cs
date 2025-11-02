@@ -8,5 +8,7 @@ namespace RadioStation.Services
         void EnqueueSong(Song song);
         Task<bool> IsStreamingAsync();
         Task StopAsync();
+        List<Song> GetQueue();
+        Song GetCurrentlyPlaying();
     }
 }

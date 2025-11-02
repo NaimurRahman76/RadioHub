@@ -60,37 +60,7 @@ namespace RadioStation.Services
             StartMainLoop();
         }
 
-        public Task<bool> IsStreamingAsync() => Task.FromResult(_currentSong != null);
-
-        public void EnqueueSong(Song song)
-        {
-            _logger.LogInformation(">>> Enqueuing song: {Title} ({VideoId})", song.Title, song.YoutubeVideoId);
-
-            _queue.Enqueue(song);
-            _logger.LogInformation("Queue size: {Count}", _queue.Count);
-
-            _queueSignal.Release();
-
-            // Notify clients about queue update
-            _ = _hub.Clients.All.SendAsync("PlaylistUpdated", new
-            {
-                queueSize = _queue.Count,
-                currentSong = _currentSong?.Title
-            });
-
-            // Trigger prefetch for next songs
-            _ = Task.Run(() => PrefetchNextSongsAsync());
-        }
-
-        public async Task StopAsync()
-        {
-            _logger.LogInformation("Stopping streaming service...");
-            _mainCts?.Cancel();
-            if (_workerTask != null)
-            {
-                try { await _workerTask; } catch { }
-            }
-        }
+        #region Utility Methods
 
         private void StartMainLoop()
         {
@@ -316,6 +286,13 @@ namespace RadioStation.Services
                     return false;
                 }
 
+                await _hub.Clients.All.SendAsync("SongStarted", new
+                {
+                    song.Title,
+                    song.YoutubeVideoId,
+                    queueSize = _queue.Count,
+                    nextSong = _queue.TryPeek(out var next) ? next.Title : null
+                });
                 // Wait for completion
                 await process.WaitForExitAsync(token);
 
@@ -550,6 +527,10 @@ namespace RadioStation.Services
             return null;
         }
 
+        #endregion
+
+        #region Methods 
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -564,5 +545,50 @@ namespace RadioStation.Services
 
             _logger.LogInformation("StreamingService disposed");
         }
+
+        public Task<bool> IsStreamingAsync() => Task.FromResult(_currentSong != null);
+
+        public void EnqueueSong(Song song)
+        {
+            _logger.LogInformation(">>> Enqueuing song: {Title} ({VideoId})", song.Title, song.YoutubeVideoId);
+
+            _queue.Enqueue(song);
+            _logger.LogInformation("Queue size: {Count}", _queue.Count);
+
+            _queueSignal.Release();
+
+            // Notify clients about queue update
+            _ = _hub.Clients.All.SendAsync("PlaylistUpdated", new
+            {
+                queueSize = _queue.Count,
+                currentSong = _currentSong?.Title
+            });
+
+            // Trigger prefetch for next songs
+            _ = Task.Run(() => PrefetchNextSongsAsync());
+        }
+
+        public async Task StopAsync()
+        {
+            _logger.LogInformation("Stopping streaming service...");
+            _mainCts?.Cancel();
+            if (_workerTask != null)
+            {
+                try { await _workerTask; } catch { }
+            }
+        }
+
+        public List<Song> GetQueue()
+        {
+            return _queue.ToList();
+        }
+
+        public Song GetCurrentlyPlaying()
+        {
+            return _currentSong;
+                
+        }
+
+        #endregion
     }
 }

@@ -18,6 +18,8 @@ namespace RadioStation.Models
         
         public string? ThumbnailUrl { get; set; }
         
+        public string? Note { get; set; }
+        
         public string? FilePath { get; set; }
         
         public TimeSpan Duration { get; set; }

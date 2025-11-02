@@ -1,13 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using RadioStation.Hubs;
 using RadioStation.Models;
 using RadioStation.Services;
 using RadioHubSignalR = RadioStation.Hubs.RadioHub;
-using System;
-using System.Threading.Tasks;
 
 namespace RadioStation.Controllers
 {
@@ -66,7 +61,7 @@ namespace RadioStation.Controllers
 
         // POST: /Song/Request
         [HttpPost]
-        public async Task<IActionResult> RequestSong(string videoId, string title, string artist, string requesterName)
+        public async Task<IActionResult> RequestSong(string videoId, string title, string artist, string requesterName,string note)
         {
             if (string.IsNullOrWhiteSpace(videoId) || string.IsNullOrWhiteSpace(title))
                 return Json(new { success = false, message = "Invalid song request" });
@@ -83,6 +78,7 @@ namespace RadioStation.Controllers
                     ThumbnailUrl = details?.ThumbnailUrl,
                     Duration = details?.Duration ?? TimeSpan.FromSeconds(12),
                     RequesterName = requesterName,
+                    Note = note,
                     AddedToQueueAt = DateTime.UtcNow
                 };
 
@@ -97,6 +93,56 @@ namespace RadioStation.Controllers
             {
                 _logger.LogError(ex, "Error requesting song: {VideoId}", videoId);
                 return Json(new { success = false, message = "Could not request this song." });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetQueueStatus()
+        {
+            try
+            {
+                _logger.LogDebug("GetQueueStatus called");
+
+                var queue =  _streamingService.GetQueue();
+                var currentlyPlaying =  _streamingService.GetCurrentlyPlaying();
+
+                _logger.LogDebug($"Queue status: {queue.Count} songs in queue, Currently playing: {currentlyPlaying?.Title ?? "None"}");
+
+                // Calculate remaining time for currently playing song
+                int? remainingTime = null;
+                if (currentlyPlaying?.StartedPlayingAt != null && currentlyPlaying?.Duration.TotalSeconds > 0)
+                {
+                    var elapsed = (DateTime.UtcNow - currentlyPlaying.StartedPlayingAt.Value).TotalSeconds;
+                    remainingTime = (int)Math.Max(0, currentlyPlaying.Duration.TotalSeconds - elapsed);
+                }
+
+                return Json(new
+                {
+                    queue = queue.Select(s => new
+                    {
+                        youtubeVideoId = s.YoutubeVideoId,
+                        title = s.Title,
+                        requesterName = s.RequesterName,
+                        note = s.Note,
+                        duration = s.Duration,
+                        addedAt = s.AddedToQueueAt.ToString("o")
+                    }),
+                    currentlyPlaying = currentlyPlaying != null ? new
+                    {
+                        youtubeVideoId = currentlyPlaying.YoutubeVideoId,
+                        title = currentlyPlaying.Title,
+                        requesterName = currentlyPlaying.RequesterName,
+                        note = currentlyPlaying.Note,
+                        duration = currentlyPlaying.Duration,
+                        remainingTime = remainingTime,
+                        startedAt = currentlyPlaying.StartedPlayingAt?.ToString("o")
+                    } : null
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting queue status");
+                return Json(new { error = "Failed to get queue status" });
             }
         }
 

@@ -26,7 +26,6 @@ builder.Services.AddSignalR();
 
 // Register the new song services
 builder.Services.AddScoped<ISongService, SongService>();
-builder.Services.AddScoped<IQueueService, QueueService>();
 builder.Services.AddSingleton<IStreamingService, StreamingService>();
 var app = builder.Build();
 

@@ -127,7 +127,7 @@
                 .withUrl('/radioHub')
                 .build();
 
-            connection.on('UpdateQueue', updateQueueDisplay);
+            connection.on('PlaylistUpdated', updateQueueDisplay);
             connection.on('SongStarted', data => updateNowPlaying(data));
             connection.on('SongEnded', data => currentlyPlaying = null);
             connection.start().then(() => console.log('SignalR connected'))
