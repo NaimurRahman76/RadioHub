@@ -91,3 +91,5 @@ TestResults/
 /obj/Debug/net6.0/RadioStation.dll
 /obj/Debug/net6.0/RadioStation.pdb
 /AudioFiles
+/obj/Debug/net6.0/RadioStation.assets.cache
+/obj/Debug/net6.0/RadioStation.GeneratedMSBuildEditorConfig.editorconfig

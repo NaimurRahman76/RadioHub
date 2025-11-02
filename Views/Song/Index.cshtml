@@ -114,24 +114,78 @@
         let queue = [];
         let currentlyPlaying = null;
         const ICECAST_URL = 'http://localhost:8087/live';
+        let autoReconnectEnabled = false;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
 
         // Initialize on page ready
         $(document).ready(function() {
             initializeSignalR();
             setupEventHandlers();
+            // Load queue status on initial page load
+            loadQueueStatus();
         });
 
         // SignalR for queue updates
         function initializeSignalR() {
             connection = new signalR.HubConnectionBuilder()
                 .withUrl('/radioHub')
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000]) // Automatic reconnection strategy
+                .configureLogging(signalR.LogLevel.Information)
                 .build();
 
             connection.on('PlaylistUpdated', updateQueueDisplay);
-            connection.on('SongStarted', data => updateNowPlaying(data));
-            connection.on('SongEnded', data => currentlyPlaying = null);
-            connection.start().then(() => console.log('SignalR connected'))
-                      .catch(err => console.error(err));
+            connection.on('SongStarted', data => {
+                console.log('SongStarted event received:', data);
+                updateNowPlaying(data);
+                // Also refresh the queue to highlight the currently playing song
+                loadQueueStatus();
+            });
+            connection.on('SongEnded', data => {
+                console.log('SongEnded event received');
+                currentlyPlaying = null;
+                // Refresh queue when song ends to update UI
+                loadQueueStatus();
+            });
+            connection.on('QueueUpdated', data => {
+                console.log('QueueUpdated event received');
+                loadQueueStatus();
+            });
+
+            // Connection state events for debugging and error handling
+            connection.onreconnecting(error => {
+                console.warn('SignalR reconnecting due to error:', error);
+                showToast('Reconnecting to radio server...', 'warning');
+            });
+            
+            connection.onreconnected(connectionId => {
+                console.log('SignalR reconnected with ID:', connectionId);
+                showToast('Reconnected to radio server!', 'success');
+                loadQueueStatus(); // Refresh data after reconnection
+            });
+            
+            connection.onclose(error => {
+                console.error('SignalR connection closed with error:', error);
+                showToast('Connection to radio server lost. Please refresh the page.', 'danger');
+            });
+
+            // Start the connection
+            startSignalRConnection();
+        }
+        
+        // Function to start SignalR connection with retry logic
+        function startSignalRConnection() {
+            console.log('Attempting to connect to SignalR hub...');
+            connection.start()
+                .then(() => {
+                    console.log('SignalR connected successfully');
+                    showToast('Connected to radio server', 'success');
+                })
+                .catch(err => {
+                    console.error('SignalR connection error:', err);
+                    showToast('Failed to connect to radio server. Retrying...', 'warning');
+                    setTimeout(startSignalRConnection, 1000); // Retry after 1 seconds
+                });
         }
 
         // Event handlers
@@ -152,23 +206,165 @@
 
         function playLiveStream() {
             if (isLivePlaying) return;
+            
+            // Enable auto-reconnect for future interruptions
+            autoReconnectEnabled = true;
+            reconnectAttempts = 0;
+            
+            // Check if we already have an audio player, clean it up first
+            if (liveAudioPlayer) {
+                liveAudioPlayer.pause();
+                liveAudioPlayer.src = '';
+                liveAudioPlayer.load();
+                liveAudioPlayer = null;
+            }
 
-            liveAudioPlayer = new Audio(ICECAST_URL);
+            // Create new audio player with crossOrigin attribute
+            liveAudioPlayer = new Audio();
+            liveAudioPlayer.crossOrigin = "anonymous"; // Add CORS header
             liveAudioPlayer.autoplay = true;
+            
+            // Set source after setting crossOrigin
+            liveAudioPlayer.src = ICECAST_URL;
 
-            liveAudioPlayer.addEventListener('playing', () => isLivePlaying = true);
-            liveAudioPlayer.addEventListener('pause', () => isLivePlaying = false);
+            // Update button immediately to provide visual feedback
+            $('#listenLiveBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Connecting...');
+
+            // Add event listeners
+            liveAudioPlayer.addEventListener('playing', () => {
+                console.log('Audio stream is playing');
+                isLivePlaying = true;
+                updateLiveButton();
+                showToast('Live stream started successfully', 'success');
+                // Only start visualizer after confirmed playing
+                startVisualizer();
+                // Reset reconnect attempts on successful connection
+                reconnectAttempts = 0;
+            });
+            
+            liveAudioPlayer.addEventListener('pause', () => {
+                console.log('Audio stream paused');
+                // Only update UI if this wasn't triggered by an auto-reconnect
+                if (!autoReconnectEnabled || reconnectAttempts === 0) {
+                    isLivePlaying = false;
+                    updateLiveButton();
+                }
+            });
+            
+            // Handle ended event - attempt to reconnect if auto-reconnect is enabled
+            liveAudioPlayer.addEventListener('ended', () => {
+                console.log('Audio stream ended');
+                handleStreamInterruption('Stream ended. This may happen when a new song starts.');
+            });
+            
+            // Handle stalled event - attempt to reconnect if auto-reconnect is enabled
+            liveAudioPlayer.addEventListener('stalled', () => {
+                console.log('Audio stream stalled');
+                handleStreamInterruption('Stream stalled. Attempting to reconnect...');
+            });
+            
+            // Handle error event
             liveAudioPlayer.addEventListener('error', e => {
-                console.error('Stream error', e);
-                isLivePlaying = false;
+                console.error('Stream error code:', liveAudioPlayer.error ? liveAudioPlayer.error.code : 'unknown', e);
+                
+                // Only update UI if this wasn't triggered by an auto-reconnect or if we've exceeded max attempts
+                if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    isLivePlaying = false;
+                    updateLiveButton();
+                    $('#listenLiveBtn').prop('disabled', false);
+                    
+                    // Show specific error message based on error code
+                    let errorMsg = 'Error connecting to live stream. Please try again.';
+                    if (liveAudioPlayer.error) {
+                        switch(liveAudioPlayer.error.code) {
+                            case 1: errorMsg = 'Stream aborted. Please try again.'; break;
+                            case 2: errorMsg = 'Network error. Please check your connection.'; break;
+                            case 3: errorMsg = 'Audio decoding error. The stream may be unavailable.'; break;
+                            case 4: errorMsg = 'Stream not supported. Please contact support.'; break;
+                        }
+                    }
+                    showToast(errorMsg, 'danger');
+                } else {
+                    // Attempt to reconnect
+                    handleStreamInterruption('Stream error. Attempting to reconnect...');
+                }
             });
 
-            liveAudioPlayer.play().catch(err => alert('Click the button to start live stream'));
-            updateLiveButton();
-            startVisualizer();
+            // Try to play and handle promise
+            console.log('Attempting to play audio stream...');
+            let playPromise = liveAudioPlayer.play();
+            
+            // Modern browsers return a promise from play()
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('Play promise resolved successfully');
+                        // The playing event will handle the rest
+                    })
+                    .catch(err => {
+                        console.error('Error starting stream:', err);
+                        
+                        if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                            isLivePlaying = false;
+                            $('#listenLiveBtn').prop('disabled', false).html('<i class="bi bi-broadcast"></i> Listen Live');
+                            
+                            if (err.name === 'NotAllowedError') {
+                                showToast('Autoplay blocked. Please click play again to start the stream.', 'warning');
+                            } else {
+                                showToast('Failed to start stream. Please try again.', 'danger');
+                            }
+                        } else {
+                            // Attempt to reconnect
+                            handleStreamInterruption('Failed to start stream. Attempting to reconnect...');
+                        }
+                    });
+            }
+        }
+        
+        // Function to handle stream interruptions and attempt reconnection
+        function handleStreamInterruption(message) {
+            if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                // If auto-reconnect is disabled or max attempts reached, just stop
+                console.log('Stream interrupted, auto-reconnect disabled or max attempts reached');
+                stopLiveStream();
+                showToast('Stream interrupted. Please click play to restart.', 'warning');
+                return;
+            }
+            
+            reconnectAttempts++;
+            console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/5`);
+            
+            // Show toast with reconnect attempt info and countdown
+            const retrySeconds = 5;
+            showToast(`${message} Reconnect attempt ${reconnectAttempts}/5 in ${retrySeconds} seconds...`, 'info');
+            
+            // Clean up existing player
+            if (liveAudioPlayer) {
+                liveAudioPlayer.pause();
+                liveAudioPlayer.src = '';
+                liveAudioPlayer.load();
+                liveAudioPlayer = null;
+            }
+            
+            // Update button to show countdown
+            const btn = $('#listenLiveBtn');
+            btn.prop('disabled', true).html(`<i class="bi bi-arrow-clockwise"></i> Reconnecting in ${retrySeconds}s...`);
+            
+            // Wait 1 seconds before reconnecting
+            setTimeout(() => {
+                // Only attempt to reconnect if we're still supposed to be playing
+                if (autoReconnectEnabled) {
+                    console.log('Attempting to reconnect to stream...');
+                    playLiveStream();
+                }
+            }, 1000); 
         }
 
         function stopLiveStream() {
+            // Disable auto-reconnect when manually stopping
+            autoReconnectEnabled = false;
+            reconnectAttempts = 0;
+            
             if (!liveAudioPlayer) return;
             liveAudioPlayer.pause();
             liveAudioPlayer.src = '';
@@ -193,65 +389,128 @@
 
         function startVisualizer() {
             if (!liveAudioPlayer) return;
-            canvas = document.getElementById('visualizer');
-            ctx = canvas.getContext('2d');
-
-            // Web Audio API setup
-            if (!audioContext) {
+            
+            try {
+                // Stop previous visualizer if it exists
+                stopVisualizer();
+                
+                canvas = document.getElementById('visualizer');
+                ctx = canvas.getContext('2d');
+                
+                // Make canvas responsive - set width to match container
+                canvas.width = canvas.parentElement.clientWidth;
+    
+                // Web Audio API setup
+                // Always create a new audio context for each song
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256; // Number of samples, smaller = smoother
                 frequencyData = new Uint8Array(analyser.frequencyBinCount);
-
-                source = audioContext.createMediaElementSource(liveAudioPlayer);
-                source.connect(analyser);
-                analyser.connect(audioContext.destination);
-            }
-
-            function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                analyser.getByteFrequencyData(frequencyData);
-
-                const bars = frequencyData.length;
-                const barWidth = canvas.width / bars;
-
-                for (let i = 0; i < bars; i++) {
-                    const value = frequencyData[i];
-                    const percent = value / 255;
-                    const barHeight = percent * canvas.height;
-
-                    const hue = 120 - percent * 120; // green to red
-                    ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
-                    ctx.shadowColor = `hsl(${hue}, 80%, 50%)`;
-                    ctx.shadowBlur = 10;
-
-                    ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+                
+                try {
+                    source = audioContext.createMediaElementSource(liveAudioPlayer);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                } catch (err) {
+                    console.error('Error connecting audio source:', err);
+                    // Continue with visualization disabled but audio still plays
+                    return;
+                }
+    
+                function draw() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    try {
+                        analyser.getByteFrequencyData(frequencyData);
+                        
+                        const bars = frequencyData.length;
+                        const barWidth = canvas.width / bars;
+        
+                        for (let i = 0; i < bars; i++) {
+                            const value = frequencyData[i];
+                            const percent = value / 255;
+                            const barHeight = percent * canvas.height;
+        
+                            const hue = 120 - percent * 120; // green to red
+                            ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
+                            ctx.shadowColor = `hsl(${hue}, 80%, 50%)`;
+                            ctx.shadowBlur = 10;
+        
+                            ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+                        }
+                    } catch (err) {
+                        console.error('Error in visualizer:', err);
+                    }
+                    
+                    animationId = requestAnimationFrame(draw);
                 }
 
-                animationId = requestAnimationFrame(draw);
+                draw();
+            } catch (err) {
+                console.error('Failed to start visualizer:', err);
+                // Audio can still play even if visualizer fails
             }
-
-            draw();
         }
 
         function stopVisualizer() {
-            if (animationId) cancelAnimationFrame(animationId);
-            if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            if (ctx && canvas) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Clean up audio context and resources
+            if (source) {
+                try {
+                    source.disconnect();
+                    source = null;
+                } catch (err) {
+                    console.error('Error disconnecting audio source:', err);
+                }
+            }
+            
+            if (audioContext) {
+                try {
+                    audioContext.close().catch(err => console.error('Error closing audio context:', err));
+                    audioContext = null;
+                    analyser = null;
+                    frequencyData = null;
+                } catch (err) {
+                    console.error('Error closing audio context:', err);
+                }
+            }
         }
 
 
         // Queue handling
         function updateQueueDisplay(queueViewModel) {
+            console.log('Updating queue display with data:', queueViewModel);
+            
+            // Handle potential null or undefined response
+            if (!queueViewModel) {
+                console.error('Invalid queue data received');
+                return;
+            }
+            
             queue = queueViewModel.queue || [];
             currentlyPlaying = queueViewModel.currentlyPlaying;
-
-            $('#totalSongs').text(queueViewModel.totalSongs);
-            $('#playingStatus').text(queueViewModel.isPlaying ? 'Playing' : 'Not playing')
+            
+            // Update queue status indicators
+            const totalSongs = queue.length;
+            $('#totalSongs').text(totalSongs);
+            
+            const isPlaying = currentlyPlaying != null;
+            $('#playingStatus').text(isPlaying ? 'Playing' : 'Not playing')
                 .removeClass('bg-success bg-secondary')
-                .addClass(queueViewModel.isPlaying ? 'bg-success' : 'bg-secondary');
+                .addClass(isPlaying ? 'bg-success' : 'bg-secondary');
 
+            // Update now playing section
             updateNowPlaying(currentlyPlaying);
 
+            // Update queue list
             const songQueue = $('#songQueue');
             songQueue.empty();
             if (!queue.length) {
@@ -260,37 +519,77 @@
             }
 
             queue.forEach((song, idx) => {
-                const item = `<div class="list-group-item">
+                // Highlight currently playing song in the queue if it exists there
+                const isCurrentlyPlaying = currentlyPlaying && song.youtubeVideoId === currentlyPlaying.youtubeVideoId;
+                const itemClass = isCurrentlyPlaying ? 'list-group-item active' : 'list-group-item';
+                
+                const item = `<div class="${itemClass}">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
                             <div class="d-flex align-items-center mb-1">
-                                <span class="badge bg-secondary me-2">${idx+1}</span>
+                                <span class="badge ${isCurrentlyPlaying ? 'bg-light text-dark' : 'bg-secondary'} me-2">${idx+1}</span>
                                 <h6 class="mb-0">${song.title}</h6>
+                                ${isCurrentlyPlaying ? '<span class="ms-2 badge bg-warning">Now Playing</span>' : ''}
                             </div>
-                            <small class="text-muted"><i class="bi bi-person"></i> ${song.requesterName} ${song.note ? '- ' + song.note : ''}</small>
+                            <small class="${isCurrentlyPlaying ? 'text-light' : 'text-muted'}">
+                                <i class="bi bi-person"></i> ${song.requesterName} ${song.note ? '- ' + song.note : ''}
+                            </small>
                         </div>
-                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="removeSong('${song.youtubeVideoId}')">
+                        <button class="btn btn-sm ${isCurrentlyPlaying ? 'btn-outline-light' : 'btn-outline-danger'} ms-2" 
+                                onclick="removeSong('${song.youtubeVideoId}')"
+                                ${isCurrentlyPlaying ? 'disabled' : ''}>
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>
                 </div>`;
                 songQueue.append(item);
             });
+            
+            console.log('Queue display updated successfully');
         }
 
         function updateNowPlaying(song) {
+            console.log('Updating now playing with song:', song);
             const nowPlayingDiv = $('#nowPlaying');
+            
             if (!song) {
                 nowPlayingDiv.html('<p class="text-muted">No song is currently playing</p>');
                 return;
             }
+            
+            // Calculate progress if available
+            let progressHtml = '';
+            if (song.startedAt && song.duration) {
+                const startTime = new Date(song.startedAt);
+                const totalSeconds = song.duration.totalSeconds || Math.floor(song.duration / 1000);
+                const elapsedSeconds = Math.floor((new Date() - startTime) / 1000);
+                const progress = Math.min(100, Math.floor((elapsedSeconds / totalSeconds) * 100));
+                
+                progressHtml = `
+                    <div class="progress mb-2" style="height: 5px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: ${progress}%" 
+                             aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <p class="small text-muted mb-2">
+                        ${formatTime(elapsedSeconds)} / ${formatTime(totalSeconds)}
+                    </p>`;
+            }
+            
             nowPlayingDiv.html(`
                 <h5 class="mb-1">${song.title}</h5>
+                ${progressHtml}
                 <p class="mb-0 text-muted">
                     <i class="bi bi-person-fill"></i> Requested by: ${song.requesterName}
                     ${song.note ? '<br><i class="bi bi-chat-text"></i> Note: ' + song.note : ''}
                 </p>
             `);
+        }
+        
+        // Helper function to format time in MM:SS
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
         function searchSongs() {
@@ -366,9 +665,16 @@
         }
 
         function loadQueueStatus() {
+            console.log('Loading queue status...');
             $.get('/Song/GetQueueStatus')
-                .done(updateQueueDisplay)
-                .fail(() => console.error('Error loading queue'));
+                .done(response => {
+                    console.log('Queue status loaded successfully:', response);
+                    updateQueueDisplay(response);
+                })
+                .fail(error => {
+                    console.error('Error loading queue status:', error);
+                    showToast('Failed to load queue status. Please try again.', 'danger');
+                });
         }
 
         function showToast(message, type='success') {
