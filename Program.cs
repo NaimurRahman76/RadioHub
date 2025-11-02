@@ -59,6 +59,18 @@ app.MapControllerRoute(
 
 app.MapHub<RadioHub>("/radiohub");
 
+// Custom route for radio player
+app.MapControllerRoute(
+    name: "radio",
+    pattern: "radio",
+    defaults: new { controller = "Song", action = "Index" });
+
+// Custom route for song search
+app.MapControllerRoute(
+    name: "song-search",
+    pattern: "radio/search",
+    defaults: new { controller = "Song", action = "Search" });
+
 app.MapControllerRoute(
 	name: "default",
 	pattern: "{controller=Home}/{action=Index}/{id?}");

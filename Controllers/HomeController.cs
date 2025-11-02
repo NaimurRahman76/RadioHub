@@ -94,6 +94,11 @@ namespace RadioStation.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        public IActionResult Privacy()
+        {
+            return View();
+        }
+
         [HttpPost]
 
         public IActionResult ToggleFavorite(int radioId, bool isFavorite)

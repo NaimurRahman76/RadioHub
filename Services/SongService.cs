@@ -74,19 +74,67 @@ namespace RadioStation.Services
         {
             try
             {
-                var searchRequest = _youtubeService.Search.List("snippet");
-                searchRequest.Q = query;
-                searchRequest.Type = "video";
-                searchRequest.VideoCategoryId = "10"; // Music category
-                searchRequest.VideoDuration = SearchResource.ListRequest.VideoDurationEnum.Medium; // 4-20 minutes, ideal for songs
-                searchRequest.MaxResults = 20;
+                var allResults = new List<SongSearchResult>();
 
-                var searchResponse = await searchRequest.ExecuteAsync();
-                var results = new List<SongSearchResult>();
+                // Strategy 1: Search without category restriction but with music keywords
+                var musicKeywordsQuery = $"{query} song music audio গান গানের";
+                var searchRequest1 = _youtubeService.Search.List("snippet");
+                searchRequest1.Q = musicKeywordsQuery;
+                searchRequest1.Type = "video";
+                searchRequest1.VideoDuration = SearchResource.ListRequest.VideoDurationEnum.Medium; // 4-20 minutes
+                searchRequest1.MaxResults = 15;
 
-                foreach (var searchItem in searchResponse.Items)
+                var searchResponse1 = await searchRequest1.ExecuteAsync();
+                await ProcessSearchResults(searchResponse1.Items, allResults);
+
+                // Strategy 2: Try pure search if we don't have enough results
+                if (allResults.Count < 10)
                 {
-                    // Get detailed video information to ensure accurate duration
+                    var searchRequest2 = _youtubeService.Search.List("snippet");
+                    searchRequest2.Q = query;
+                    searchRequest2.Type = "video";
+                    searchRequest2.VideoDuration = SearchResource.ListRequest.VideoDurationEnum.Medium; // 4-20 minutes
+                    searchRequest2.MaxResults = 20;
+
+                    var searchResponse2 = await searchRequest2.ExecuteAsync();
+                    await ProcessSearchResults(searchResponse2.Items, allResults);
+                }
+
+                // Strategy 3: If still not enough, try without duration restriction
+                if (allResults.Count < 10)
+                {
+                    var searchRequest3 = _youtubeService.Search.List("snippet");
+                    searchRequest3.Q = $"{query} song music গান";
+                    searchRequest3.Type = "video";
+                    searchRequest3.MaxResults = 15;
+
+                    var searchResponse3 = await searchRequest3.ExecuteAsync();
+                    await ProcessSearchResults(searchResponse3.Items, allResults);
+                }
+
+                // Remove duplicates and apply smart filtering
+                var uniqueResults = allResults
+                    .GroupBy(x => x.VideoId)
+                    .Select(g => g.First())
+                    .Where(IsLikelySongFromMetadata)
+                    .Take(20)
+                    .ToList();
+
+                return uniqueResults;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error using official YouTube API for search: {Query}", query);
+                return new List<SongSearchResult>(); // Return empty to trigger fallback
+            }
+        }
+
+        private async Task ProcessSearchResults(IList<Google.Apis.YouTube.v3.Data.SearchResult> searchItems, List<SongSearchResult> results)
+        {
+            foreach (var searchItem in searchItems.Take(10)) // Process in batches to avoid rate limits
+            {
+                try
+                {
                     var videoRequest = _youtubeService.Videos.List("contentDetails,snippet");
                     videoRequest.Id = searchItem.Id.VideoId;
 
@@ -95,11 +143,10 @@ namespace RadioStation.Services
 
                     if (video != null)
                     {
-                        // Parse duration from ISO 8601 format
                         var duration = System.Xml.XmlConvert.ToTimeSpan(video.ContentDetails.Duration);
 
-                        // Additional filter: ensure duration is reasonable for songs (1-10 minutes)
-                        if (duration.TotalSeconds >= 60 && duration.TotalSeconds <= 600)
+                        // Accept broader duration range: 30 seconds to 15 minutes
+                        if (duration.TotalSeconds >= 30 && duration.TotalSeconds <= 900)
                         {
                             results.Add(new SongSearchResult
                             {
@@ -112,14 +159,79 @@ namespace RadioStation.Services
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error processing video {VideoId}", searchItem.Id?.VideoId);
+                }
+            }
+        }
 
-                return results;
-            }
-            catch (Exception ex)
+        private bool IsLikelySongFromMetadata(SongSearchResult result)
+        {
+            var title = result.Title.ToLower();
+            var channelTitle = result.ChannelTitle.ToLower();
+
+            // Duration check - already done in search, but double-check
+            var durationSeconds = result.Duration.TotalSeconds;
+            if (durationSeconds < 30 || durationSeconds > 900)
+                return false;
+
+            // Strong positive indicators
+            var strongMusicIndicators = new[]
             {
-                _logger.LogError(ex, "Error using official YouTube API for search: {Query}", query);
-                return new List<SongSearchResult>(); // Return empty to trigger fallback
+                "official video", "music video", "lyrics", "lyric", "audio", "song", "গান", "গানের",
+                "remix", "cover", "acoustic", "live", "concert", "performance",
+                "album", "single", "ep", "track", "ট্র্যাক",
+                "instrumental", "karaoke", "ক্যারাওকে", "বাংলা", "বাংলা গান"
+            };
+
+            // Medium positive indicators
+            var mediumMusicIndicators = new[]
+            {
+                "mv", "music", "audio", "sound", "সঙ্গীত", "সঙ্গীতের",
+                "video song", "song video", "ভিডিও গান", "গান ভিডিও"
+            };
+
+            // Negative indicators (exclude these)
+            var negativeIndicators = new[]
+            {
+                "interview", "podcast", "documentary", "tutorial", "review", "trailer",
+                "movie", "film", "episode", "show", "news", "vlog", "gameplay",
+                "how to", "guide", "explanation", "lecture", "talk", "speech",
+                "reaction", "compilation", "top 10", "best of", "moments",
+                "behind the scenes", "making of", "bloopers", "commentary",
+                "analysis", "breakdown", "explainer", "theory", "টিউটোরিয়াল"
+            };
+
+            // Check negative indicators first (immediate disqualification)
+            if (negativeIndicators.Any(indicator => title.Contains(indicator) || channelTitle.Contains(indicator)))
+                return false;
+
+            // Check strong positive indicators
+            if (strongMusicIndicators.Any(indicator => title.Contains(indicator) || channelTitle.Contains(indicator)))
+                return true;
+
+            // Check medium positive indicators
+            var mediumScore = mediumMusicIndicators.Count(indicator => title.Contains(indicator) || channelTitle.Contains(indicator));
+            if (mediumScore >= 2) // Need at least 2 medium indicators
+                return true;
+
+            // Check for common song patterns (Artist - Song Title)
+            if (title.Contains(" - ") || title.Contains("|") || title.Contains("•"))
+            {
+                // Exclude patterns that suggest playlists or compilations
+                if (!title.Contains("mix") && !title.Contains("playlist") && !title.Contains("collection"))
+                    return true;
             }
+
+            // Check for music-related channel patterns
+            var musicChannelPatterns = new[]
+            {
+                "music", "song", "audio", "গান", "সঙ্গীত", "official", "vevo",
+                "records", "label", "studio", "production", "media"
+            };
+
+            return musicChannelPatterns.Any(pattern => channelTitle.Contains(pattern));
         }
 
         private async Task<List<SongSearchResult>> SearchWithYoutubeExplodeAsync(string query)
@@ -128,8 +240,8 @@ namespace RadioStation.Services
 
             var searchResults = new List<VideoSearchResult>();
 
-            // Search with music-specific keywords
-            var musicSearchQuery = $"{query} music song official";
+            // Search with music-specific keywords including Bangla
+            var musicSearchQuery = $"{query} song music audio গান গানের official";
             await foreach (var video in _youtubeClient.Search.GetVideosAsync(musicSearchQuery))
             {
                 searchResults.Add(video);
@@ -179,17 +291,19 @@ namespace RadioStation.Services
             var title = video.Title.ToLower();
             var channelTitle = video.Author.ChannelTitle.ToLower();
 
-            // Enhanced keywords that suggest music content
+            // Enhanced keywords that suggest music content (including Bangla)
             var musicKeywords = new[]
             {
-                "official video", "music video", "lyrics", "audio", "song", "track",
+                "official video", "music video", "lyrics", "lyric", "audio", "song", "track",
                 "remix", "cover", "acoustic", "live", "concert", "performance",
                 "album", "single", "ep", "playlist", "radio edit", "extended",
                 "instrumental", "karaoke", "backing track", "mix", "dub",
-                "mv", "clip", "official", "hd", "4k", "visualizer"
+                "mv", "clip", "official", "hd", "4k", "visualizer",
+                "গান", "গানের", "সঙ্গীত", "সঙ্গীতের", "গাওয়া", "বাংলা গান", "বাংলা গানের",
+                "ভিডিও গান", "গান ভিডিও", "অডিও", "অডিও গান", "ক্যারাওকে"
             };
 
-            // Enhanced keywords that suggest non-music content
+            // Enhanced keywords that suggest non-music content (including Bangla)
             var nonMusicKeywords = new[]
             {
                 "interview", "podcast", "documentary", "tutorial", "review", "trailer",
@@ -197,7 +311,8 @@ namespace RadioStation.Services
                 "how to", "guide", "explanation", "lecture", "talk", "speech",
                 "reaction", "compilation", "top 10", "best of", "moments",
                 "highlights", "behind the scenes", "making of", "bloopers",
-                "commentary", "analysis", "breakdown", "explainer", "theory"
+                "commentary", "analysis", "breakdown", "explainer", "theory",
+                "টিউটোরিয়াল", "সাক্ষাৎকার", "ডকুমেন্টারি", "খবর", "গেমপ্লে", "রিভিউ"
             };
 
             // Check for non-music keywords in title or channel - immediate disqualification
@@ -216,12 +331,13 @@ namespace RadioStation.Services
                     return true;
             }
 
-            // Enhanced channel name patterns for music content
+            // Enhanced channel name patterns for music content (including Bangla)
             var musicChannelPatterns = new[]
             {
                 "vevo", "music", "records", "label", "radio", "band", "artist",
                 "official", "channel", "entertainment", "warner", "universal",
-                "sony", "atlantic", "capitol", "republic", "interscope"
+                "sony", "atlantic", "capitol", "republic", "interscope",
+                "সঙ্গীত", "গান", "অডিও", "মিউজিক", "বাংলা", "বাংলা গান"
             };
 
             if (musicChannelPatterns.Any(pattern => channelTitle.Contains(pattern)))
@@ -352,19 +468,28 @@ namespace RadioStation.Services
                 if (video == null)
                     return null;
 
-                // Check if video is in music category (ID 10)
-                if (video.Snippet.CategoryId != "10")
-                    return false;
-
                 // Parse duration
                 var duration = System.Xml.XmlConvert.ToTimeSpan(video.ContentDetails.Duration);
 
-                // Ensure duration is reasonable for songs (30 seconds to 15 minutes)
-                return duration.TotalSeconds >= 30 && duration.TotalSeconds <= 900;
+                // Check duration first
+                if (duration.TotalSeconds < 30 || duration.TotalSeconds > 900)
+                    return false;
+
+                // Create song result to use with metadata filtering
+                var songResult = new SongSearchResult
+                {
+                    VideoId = video.Id,
+                    Title = video.Snippet.Title,
+                    ChannelTitle = video.Snippet.ChannelTitle,
+                    Duration = duration
+                };
+
+                // Use the same smart filtering logic as search
+                return IsLikelySongFromMetadata(songResult);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error using official API to check video category: {VideoId}", videoId);
+                _logger.LogError(ex, "Error using official API to check video: {VideoId}", videoId);
                 return null; // Return null to trigger fallback
             }
         }

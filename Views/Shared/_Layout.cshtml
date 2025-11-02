@@ -61,8 +61,57 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/RadioStation.styles.css" asp-append-version="true" />
+
+    <style>
+        .running-banner {
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24, #f368e0, #ff6348);
+            color: white;
+            padding: 8px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .banner-content {
+            display: inline-block;
+            animation: scroll-left 40s linear infinite;
+            padding-left: 100%;
+        }
+
+        @@keyframes scroll-left {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+    </style>
 </head>
 <body>
+    <!-- Running Banner -->
+    <div class="running-banner">
+        <div class="banner-content">
+            🎵 Live Requested Radio Section Added! |
+            সরাসরি অনুরোধকৃত রেডিও বিভাগ যোগ করা হয়েছে! |
+            🎓 Educational Purpose Only - No Copyright Claims |
+            শুধুমাত্র শিক্ষামূলক উদ্দেশ্যে - কোনো কপিরাইট দাবি নয় |
+            🆓 Completely Free Educational Content |
+            সম্পূর্ণ বিনামূল্যে শিক্ষামূলক বিষয়বস্তু |
+            📚 For Educational and Learning Purposes Only |
+            শুধুমাত্র শিক্ষা এবং শেখার উদ্দেশ্যে |
+            🎯 No Commercial Use - Educational Platform |
+            কোনো বাণিজ্যিক ব্যবহার নয় - শিক্ষামূলক প্ল্যাটফর্ম |
+        </div>
+    </div>
+
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
@@ -80,40 +129,8 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Song" asp-action="Index">Music Player</a>
+                            <a class="nav-link text-dark" href="/radio">🎵 Live Radio</a>
                         </li>
-                        <div class="container float-end">
-                           
-                            @if(Context.Session==null || Context.Session.GetInt32("userId")==null)
-                            {
-                                <li class="nav-item float-end">
-                                <a class="nav-link text-dark"  asp-controller="SignUp" asp-action="Index">Sign Up</a>
-                                </li>
-                                <li class="nav-item float-end">
-                                    <a class="nav-link text-dark" asp-controller="Home" asp-action="Login">Login</a>
-                                </li>
-                            }
-                            else
-                            {
-                            <li class="nav-item float-end dropdown">
-                                <a class="user-initials btn btn-primary dropdown-toggle" id="userNameDropdown" data-bs-toggle="dropdown" aria-expanded="false">@Context.Session.GetString("userName")</a>
-                                <ul class="dropdown-menu" aria-labelledby="userNameDropdown">
-                                    <li><a class="dropdown-item" asp-controller="Home" asp-action="Logout">Logout</a></li>
-                                </ul>
-                            </li>
-                            @if(Context.Session.GetInt32("userId")==1){
-                                <li class="nav-item float-end">
-                                     <a class=" btn btn-primary mx-3 " asp-area="" asp-controller="Home" asp-action="Add">Add new radio</a>
-                                </li>
-                                }
-                                else
-                                {
-                                <li class="nav-item float-end">
-                                    <a class=" btn btn-primary mx-3 " asp-area="" asp-controller="Home" asp-action="Favourite" asp-route-id="@(Context.Session?.GetInt32("userId") ?? 0)">Favourite Radio</a>
-                                </li>
-                                }
-                            } 
-                        </div>
                      </ul>
                 </div>
             </div>
@@ -126,7 +143,7 @@
     </div>
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2023 - RadioStation - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2025 - RadioStation - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
     @await RenderSectionAsync("Scripts", required: false)
