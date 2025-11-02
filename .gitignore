@@ -79,3 +79,14 @@ TestResults/
 
 # Local development environment (IIS Express)
 *.iisx
+/bin/
+/bin/Debug/net6.0/RadioStation.exe
+/bin/Debug/net6.0/RadioStation.pdb
+/obj/Debug/net6.0/ref/RadioStation.dll
+/obj/Debug/net6.0/refint/RadioStation.dll
+/obj/Debug/net6.0/apphost.exe
+/obj/Debug/net6.0/RadioStation.AssemblyInfo.cs
+/obj/Debug/net6.0/RadioStation.AssemblyInfoInputs.cache
+/obj/Debug/net6.0/RadioStation.csproj.CoreCompileInputs.cache
+/obj/Debug/net6.0/RadioStation.dll
+/obj/Debug/net6.0/RadioStation.pdb
