@@ -95,7 +95,6 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5>📋 Queue</h5>
-                    <button id="clearQueueBtn" class="btn btn-sm btn-outline-danger">Clear</button>
                 </div>
                 <div class="card-body">
                     <div id="queueStatus" class="mb-3 p-3 bg-light rounded">
@@ -155,11 +154,14 @@
         let connection = null;
         let queue = [];
         let currentlyPlaying = null;
-        const ICECAST_URL = 'http://localhost:8087/live';
+        //let xx = radio-stream.naimurrahmanrony.com;
+        const ICECAST_URL = 'https://radio-stream.naimurrahmanrony.com';
         let autoReconnectEnabled = false;
         let hasSuccessfullyConnected = false; // Track if we've had a successful connection
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
+        let isReconnecting = false; // Prevent multiple reconnection attempts
+        let reconnectTimeoutId = null; // Track reconnection timeout
 
         // Initialize on page ready
         $(document).ready(function() {
@@ -192,6 +194,28 @@
             });
             connection.on('QueueUpdated', data => {
                 console.log('QueueUpdated event received');
+
+                // If we're stuck in reconnection loop and new songs are added, force a fresh connection
+                if (isReconnecting && reconnectAttempts >= 2) {
+                    console.log('Breaking reconnection loop - new songs added, forcing fresh connection');
+                    isReconnecting = false; // Reset the stuck state
+                    reconnectAttempts = 0; // Reset retry counter
+
+                    // Clear any pending reconnection timeout
+                    if (reconnectTimeoutId) {
+                        clearTimeout(reconnectTimeoutId);
+                        reconnectTimeoutId = null;
+                    }
+
+                    // If we're supposed to be playing, start fresh
+                    if (isLivePlaying && autoReconnectEnabled) {
+                        setTimeout(() => {
+                            console.log('Starting fresh connection after new song added');
+                            playLiveStream();
+                        }, 1000);
+                    }
+                }
+
                 loadQueueStatus();
             });
 
@@ -252,6 +276,7 @@
                 autoReconnectEnabled = true;
             }
             reconnectAttempts = 0;
+            isReconnecting = false; // Reset reconnection flag when starting new connection
             
             // Check if we already have an audio player, clean it up first
             if (liveAudioPlayer) {
@@ -290,6 +315,7 @@
                 isLivePlaying = true;
                 hasSuccessfullyConnected = true; // Mark that we've had a successful connection
                 autoReconnectEnabled = true; // Now enable auto-reconnect for future interruptions
+                isReconnecting = false; // Reset reconnection flag on successful play
                 updateLiveButton();
                 showToast('Live stream started successfully', 'success');
                 // Only start visualizer after confirmed playing
@@ -307,17 +333,50 @@
                 }
             });
             
-            // Handle ended event - attempt to reconnect if auto-reconnect is enabled and we've successfully connected before
+            // Handle ended event - check if there are more songs before reconnecting
             liveAudioPlayer.addEventListener('ended', () => {
-                console.log('Audio stream ended');
-                if (hasSuccessfullyConnected && autoReconnectEnabled) {
-                    handleStreamInterruption('Stream ended. This may happen when a new song starts.');
-                } else {
-                    console.log('Stream ended but no successful connection yet, stopping');
-                    isLivePlaying = false;
-                    updateLiveButton();
-                    showToast('Stream ended. Please try again.', 'warning');
-                }
+                console.log('Audio stream ended - checking for next song');
+
+                // Reset reconnection flag since this is a normal song end
+                isReconnecting = false;
+
+                // Wait a moment for the next song to start (normal behavior between songs)
+                setTimeout(() => {
+                    // Check if the stream has audio before attempting to reconnect
+                    // This prevents reconnection when there are no more songs
+                    $.ajax({
+                        url: '/Song/GetQueueStatus',
+                        type: 'GET',
+                        success: function(data) {
+                            if (data.totalSongs === 0) {
+                                console.log('No more songs in queue, stopping playback');
+                                isLivePlaying = false;
+                                autoReconnectEnabled = false;
+                                updateLiveButton();
+                                showToast('Queue is empty. Add songs to continue listening.', 'info');
+                                return;
+                            }
+
+                            // If there are songs but stream ended, attempt reconnection
+                            if (hasSuccessfullyConnected && autoReconnectEnabled) {
+                                console.log('More songs available, attempting to reconnect to next song');
+                                handleStreamInterruption('Song ended. Connecting to next song...');
+                            } else {
+                                console.log('Stream ended but auto-reconnect not available');
+                                isLivePlaying = false;
+                                updateLiveButton();
+                                showToast('Stream ended. Please click play to continue.', 'warning');
+                            }
+                        },
+                        error: function() {
+                            console.log('Failed to check queue status after song end');
+                            isReconnecting = false;
+                            // Don't reconnect automatically on error - let user decide
+                            isLivePlaying = false;
+                            updateLiveButton();
+                        }
+                    });
+                }, 3000); // Wait 3 seconds for next song to start
             });
 
             // Handle stalled event - attempt to reconnect if auto-reconnect is enabled and we've successfully connected before
@@ -336,6 +395,9 @@
                 // Store error details before cleanup
                 const errorCode = liveAudioPlayer && liveAudioPlayer?.error ? liveAudioPlayer.error.code : 'unknown';
                 console.error('Stream error code:', errorCode, e);
+
+                // Reset reconnection flag on error
+                isReconnecting = false;
 
                 // Only attempt reconnection if we've successfully connected before and auto-reconnect is enabled
                 if (hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
@@ -410,6 +472,12 @@
         
         // Function to handle stream interruptions and attempt reconnection
         function handleStreamInterruption(message) {
+            // Prevent multiple reconnection attempts from firing simultaneously
+            if (isReconnecting) {
+                console.log('Reconnection already in progress, ignoring duplicate call');
+                return;
+            }
+
             if (!autoReconnectEnabled) {
                 // If auto-reconnect is disabled, just stop
                 console.log('Stream interrupted, auto-reconnect disabled');
@@ -417,7 +485,7 @@
                 showToast('Stream interrupted. Please click play to restart.', 'warning');
                 return;
             }
-            
+
             // Check if we've reached max reconnect attempts
             if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                 console.log(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
@@ -425,6 +493,9 @@
                 showToast(`Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts. Please try again manually.`, 'danger');
                 return;
             }
+
+            // Set reconnection flag to prevent duplicate calls
+            isReconnecting = true;
             
             // Check if there are songs in the queue before attempting to reconnect
             $.ajax({
@@ -440,7 +511,7 @@
                     
                     // Continue with reconnection since songs are available
                     reconnectAttempts++;
-                    console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                    console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} - ${message}`);
                     
                     // Show toast with reconnect attempt info and countdown
                     const retrySeconds = 5;
@@ -477,17 +548,32 @@
                     // Also update the status text to reflect reconnection state
                     $('.text-muted.small.mt-2').text(`Reconnecting in ${retrySeconds} seconds...`);
                     
+                    // Clear any existing timeout
+                    if (reconnectTimeoutId) {
+                        clearTimeout(reconnectTimeoutId);
+                    }
+
                     // Wait 5 seconds before reconnecting
-                    setTimeout(() => {
+                    reconnectTimeoutId = setTimeout(() => {
+                        // Debug: Log current state before reconnecting
+                        console.log(`Timeout triggered. Current state - isReconnecting: ${isReconnecting}, reconnectAttempts: ${reconnectAttempts}, autoReconnectEnabled: ${autoReconnectEnabled}`);
+
+                        // Reset reconnection flag before attempting new connection
+                        isReconnecting = false;
+
                         // Only attempt to reconnect if we're still supposed to be playing
                         if (autoReconnectEnabled && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
-                            console.log('Attempting to reconnect to stream...');
+                            console.log(`Attempting to reconnect to stream... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
                             playLiveStream();
+                        } else {
+                            console.log(`Not reconnecting - autoReconnectEnabled: ${autoReconnectEnabled}, reconnectAttempts: ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                            stopLiveStream();
                         }
                     }, retrySeconds * 1000);
                 },
                 error: function() {
                     console.error('Failed to check queue status');
+                    isReconnecting = false; // Reset flag on error
                     stopLiveStream();
                     showToast('Error checking queue status. Streaming stopped.', 'danger');
                 }
@@ -499,7 +585,14 @@
             autoReconnectEnabled = false;
             hasSuccessfullyConnected = false; // Reset connection tracking
             reconnectAttempts = 0;
-            
+            isReconnecting = false; // Reset reconnection flag
+
+            // Clear any pending reconnection timeout
+            if (reconnectTimeoutId) {
+                clearTimeout(reconnectTimeoutId);
+                reconnectTimeoutId = null;
+            }
+
             // Update button states immediately to show stopping
             const playBtn = $('#listenLiveBtn');
             const stopBtn = $('#stopLiveBtn');
@@ -742,11 +835,6 @@
                                 <i class="bi bi-person"></i> ${song.requesterName} ${song.note ? '- ' + song.note : ''}
                             </small>
                         </div>
-                        <button class="btn btn-sm ${isCurrentlyPlaying ? 'btn-outline-light' : 'btn-outline-danger'} ms-2" 
-                                onclick="removeSong('${song.youtubeVideoId}')"
-                                ${isCurrentlyPlaying ? 'disabled' : ''}>
-                            <i class="bi bi-trash"></i>
-                        </button>
                     </div>
                 </div>`;
                 songQueue.append(item);
@@ -865,7 +953,33 @@
             $('#requestModal').modal('hide');
 
             $.post('/Song/RequestSong', { videoId, title, requesterName, note })
-                .done(() => { showToast(`"${title}" added to queue!`, 'success'); $('#searchResults').empty(); $('#searchQuery').val(''); loadQueueStatus(); })
+                .done((response) => {
+                    showToast(`"${title}" added to queue!`, 'success');
+                    $('#searchResults').empty();
+                    $('#searchQuery').val('');
+                    loadQueueStatus();
+
+                    // If we're stuck in reconnection and a new song was added, break the loop
+                    if (isReconnecting && reconnectAttempts >= 1) {
+                        console.log('New song added - breaking reconnection loop and starting fresh');
+                        isReconnecting = false;
+                        reconnectAttempts = 0;
+
+                        // Clear any pending reconnection timeout
+                        if (reconnectTimeoutId) {
+                            clearTimeout(reconnectTimeoutId);
+                            reconnectTimeoutId = null;
+                        }
+
+                        // If we're supposed to be playing, restart the stream to pick up the new song
+                        if (isLivePlaying && autoReconnectEnabled) {
+                            setTimeout(() => {
+                                console.log('Restarting stream for newly added song');
+                                playLiveStream();
+                            }, 1000);
+                        }
+                    }
+                })
                 .fail(() => showToast('Error adding song', 'danger'));
         }
 

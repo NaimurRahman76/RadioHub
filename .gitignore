@@ -96,3 +96,4 @@ TestResults/
 /.claude/settings.local.json
 /bin/Debug/net6.0/appsettings.json
 /appsettings.json
+/obj/Debug/net6.0/staticwebassets.build.json
