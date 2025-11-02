@@ -749,12 +749,24 @@
         function displaySearchResults(results) {
             const container = $('#searchResults');
             container.empty();
-            if (!results.length) return container.html('<p class="text-center text-muted">No results found.</p>');
+            
+            // Add a message about song filtering
+            const filterMessage = `<div class="alert alert-info mb-3">
+                <i class="bi bi-info-circle"></i> Showing only music results. Non-music content has been filtered out.
+            </div>`;
+            container.append(filterMessage);
+            
+            if (!results.length) return container.append('<p class="text-center text-muted">No songs found. Try different keywords.</p>');
 
             results.forEach(result => {
                 const card = `<div class="col-md-6 mb-3">
                     <div class="card h-100 shadow-sm">
-                        <img src="${result.thumbnailUrl}" class="card-img-top" style="height:120px;object-fit:cover">
+                        <div class="position-relative">
+                            <img src="${result.thumbnailUrl}" class="card-img-top" style="height:120px;object-fit:cover">
+                            <span class="position-absolute top-0 end-0 m-1 badge bg-success">
+                                <i class="bi bi-music-note"></i> Song
+                            </span>
+                        </div>
                         <div class="card-body p-2">
                             <h6 class="card-title text-truncate" title="${result.title}">${result.title}</h6>
                             <p class="card-text small text-muted">${result.channelTitle} - ${result.durationDisplay}</p>

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using RadioStation.Models;
 using RadioStation.Services;
@@ -68,6 +68,13 @@ namespace RadioStation.Controllers
 
             try
             {
+                // Validate that the video is a song
+                var isSong = await _songService.IsSongAsync(videoId);
+                if (!isSong)
+                {
+                    return Json(new { success = false, message = "Only songs can be added to the queue. This video appears to be non-music content." });
+                }
+
                 var details = await _songService.GetSongDetailsAsync(videoId);
 
                 var song = new Song
@@ -97,7 +104,7 @@ namespace RadioStation.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetQueueStatus()
+        public IActionResult GetQueueStatus()
         {
             try
             {

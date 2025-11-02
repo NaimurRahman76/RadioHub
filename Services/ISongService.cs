@@ -8,5 +8,6 @@ namespace RadioStation.Services
     {
         Task<List<SongSearchResult>> SearchSongsAsync(string query);
         Task<SongSearchResult?> GetSongDetailsAsync(string videoId);
+        Task<bool> IsSongAsync(string videoId);
     }
 }
