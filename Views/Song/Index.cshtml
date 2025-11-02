@@ -120,6 +120,7 @@
         let currentlyPlaying = null;
         const ICECAST_URL = 'http://localhost:8087/live';
         let autoReconnectEnabled = false;
+        let hasSuccessfullyConnected = false; // Track if we've had a successful connection
         let reconnectAttempts = 0;
         const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -208,9 +209,11 @@
 
         function playLiveStream() {
             if (isLivePlaying) return;
-            
-            // Enable auto-reconnect for future interruptions
-            autoReconnectEnabled = true;
+
+            // Only enable auto-reconnect after we've had at least one successful connection
+            if (hasSuccessfullyConnected) {
+                autoReconnectEnabled = true;
+            }
             reconnectAttempts = 0;
             
             // Check if we already have an audio player, clean it up first
@@ -248,6 +251,8 @@
             liveAudioPlayer.addEventListener('playing', () => {
                 console.log('Audio stream is playing');
                 isLivePlaying = true;
+                hasSuccessfullyConnected = true; // Mark that we've had a successful connection
+                autoReconnectEnabled = true; // Now enable auto-reconnect for future interruptions
                 updateLiveButton();
                 showToast('Live stream started successfully', 'success');
                 // Only start visualizer after confirmed playing
@@ -265,16 +270,28 @@
                 }
             });
             
-            // Handle ended event - attempt to reconnect if auto-reconnect is enabled
+            // Handle ended event - attempt to reconnect if auto-reconnect is enabled and we've successfully connected before
             liveAudioPlayer.addEventListener('ended', () => {
                 console.log('Audio stream ended');
-                handleStreamInterruption('Stream ended. This may happen when a new song starts.');
+                if (hasSuccessfullyConnected && autoReconnectEnabled) {
+                    handleStreamInterruption('Stream ended. This may happen when a new song starts.');
+                } else {
+                    console.log('Stream ended but no successful connection yet, stopping');
+                    isLivePlaying = false;
+                    updateLiveButton();
+                    showToast('Stream ended. Please try again.', 'warning');
+                }
             });
-            
-            // Handle stalled event - attempt to reconnect if auto-reconnect is enabled
+
+            // Handle stalled event - attempt to reconnect if auto-reconnect is enabled and we've successfully connected before
             liveAudioPlayer.addEventListener('stalled', () => {
                 console.log('Audio stream stalled');
-                handleStreamInterruption('Stream stalled. Attempting to reconnect...');
+                if (hasSuccessfullyConnected && autoReconnectEnabled) {
+                    handleStreamInterruption('Stream stalled. Attempting to reconnect...');
+                } else {
+                    console.log('Stream stalled but no successful connection yet, this might be initial buffering');
+                    // Don't show error for initial stall, let it timeout naturally
+                }
             });
             
             // Handle error event
@@ -282,27 +299,33 @@
                 // Store error details before cleanup
                 const errorCode = liveAudioPlayer && liveAudioPlayer?.error ? liveAudioPlayer.error.code : 'unknown';
                 console.error('Stream error code:', errorCode, e);
-                
-                // Only update UI if this wasn't triggered by an auto-reconnect or if we've exceeded max attempts
-                if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+
+                // Only attempt reconnection if we've successfully connected before and auto-reconnect is enabled
+                if (hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    // Attempt to reconnect
+                    handleStreamInterruption('Stream error. Attempting to reconnect...');
+                } else {
+                    // Show error and stop
                     isLivePlaying = false;
                     updateLiveButton();
                     $('#listenLiveBtn').prop('disabled', false);
-                    
+
                     // Show specific error message based on error code
-                    let errorMsg = 'Error connecting to live stream. Please try again.';
+                    let errorMsg = hasSuccessfullyConnected ?
+                        'Error connecting to live stream. Please try again.' :
+                        'Unable to start live stream. Please check if songs are available in the queue and try again.';
+
                     if (errorCode !== 'unknown') {
                         switch(errorCode) {
                             case 1: errorMsg = 'Stream aborted. Please try again.'; break;
                             case 2: errorMsg = 'Network error. Please check your connection.'; break;
-                            case 3: errorMsg = 'Audio decoding error. The stream may be unavailable.'; break;
+                            case 3: errorMsg = hasSuccessfullyConnected ?
+                                'Audio decoding error. The stream may be unavailable.' :
+                                'No audio is currently playing. Please add songs to the queue and try again.'; break;
                             case 4: errorMsg = 'Stream not supported. Please contact support.'; break;
                         }
                     }
                     showToast(errorMsg, 'danger');
-                } else {
-                    // Attempt to reconnect
-                    handleStreamInterruption('Stream error. Attempting to reconnect...');
                 }
             });
 
@@ -321,25 +344,28 @@
                     })
                     .catch(err => {
                         console.error('Error starting stream:', err);
-                        
+
                         // Don't show error if this is an AbortError during reconnection
-                        if (err.name === 'AbortError' && autoReconnectEnabled && reconnectAttempts > 0) {
+                        if (err.name === 'AbortError' && hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts > 0) {
                             console.log('Play aborted during reconnection, this is expected');
                             return;
                         }
-                        
-                        if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                            isLivePlaying = false;
-                            $('#listenLiveBtn').prop('disabled', false).html('<i class="bi bi-broadcast"></i> Listen Live');
-                            
-                            if (err.name === 'NotAllowedError') {
-                                showToast('Autoplay blocked. Please click play again to start the stream.', 'warning');
-                            } else {
-                                showToast('Failed to start stream. Please try again.', 'danger');
-                            }
-                        } else {
+
+                        // Only attempt reconnection if we've successfully connected before
+                        if (hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                             // Attempt to reconnect
                             handleStreamInterruption('Failed to start stream. Attempting to reconnect...');
+                        } else {
+                            isLivePlaying = false;
+                            $('#listenLiveBtn').prop('disabled', false).html('<i class="bi bi-broadcast"></i> Listen Live');
+
+                            if (err.name === 'NotAllowedError') {
+                                showToast('Autoplay blocked. Please click play again to start the stream.', 'warning');
+                            } else if (hasSuccessfullyConnected) {
+                                showToast('Failed to restart stream. Please try again.', 'danger');
+                            } else {
+                                showToast('Unable to start live stream. Please check if songs are available in the queue and try again.', 'danger');
+                            }
                         }
                     });
             }
@@ -432,8 +458,9 @@
         }
 
         function stopLiveStream() {
-            // Disable auto-reconnect when manually stopping
+            // Disable auto-reconnect when manually stopping and reset connection tracking
             autoReconnectEnabled = false;
+            hasSuccessfullyConnected = false; // Reset connection tracking
             reconnectAttempts = 0;
             
             // Update button states immediately to show stopping
