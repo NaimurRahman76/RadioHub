@@ -19,11 +19,16 @@
                     <!-- Visualizer -->
                     <canvas id="visualizer" width="600" height="100" style="width: 100%; background: #f8f9fa; border-radius: 5px;"></canvas>
 
-                    <!-- Live Stream Button -->
+                    <!-- Live Stream Buttons -->
                     <div class="mt-3">
-                        <button id="listenLiveBtn" class="btn btn-success btn-lg">
-                            <i class="bi bi-broadcast"></i> Listen Live
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button id="listenLiveBtn" class="btn btn-success btn-lg">
+                                <i class="bi bi-broadcast"></i> Listen Live
+                            </button>
+                            <button id="stopLiveBtn" class="btn btn-danger btn-lg" disabled>
+                                <i class="bi bi-stop-fill"></i> Stop
+                            </button>
+                        </div>
                         <p class="text-muted small mt-2">Click to start the live radio broadcast</p>
                     </div>
                 </div>
@@ -190,7 +195,8 @@
 
         // Event handlers
         function setupEventHandlers() {
-            $('#listenLiveBtn').click(toggleLiveStream);
+            $('#listenLiveBtn').click(playLiveStream);
+            $('#stopLiveBtn').click(stopLiveStream);
             $('#searchButton').click(searchSongs);
             $('#searchQuery').keypress(e => { if (e.which === 13) searchSongs(); });
             $('#confirmRequestBtn').click(confirmRequest);
@@ -198,11 +204,7 @@
             $('#clearQueueBtn').click(clearQueue);
         }
 
-        // Live Stream Play/Stop
-        function toggleLiveStream() {
-            if (isLivePlaying) stopLiveStream();
-            else playLiveStream();
-        }
+
 
         function playLiveStream() {
             if (isLivePlaying) return;
@@ -213,10 +215,16 @@
             
             // Check if we already have an audio player, clean it up first
             if (liveAudioPlayer) {
-                liveAudioPlayer.pause();
-                liveAudioPlayer.src = '';
-                liveAudioPlayer.load();
+                // Store reference to current player
+                const currentPlayer = liveAudioPlayer;
+                
+                // Set to null first to prevent race conditions
                 liveAudioPlayer = null;
+                
+                // Pause and clean up
+                currentPlayer.pause();
+                currentPlayer.src = '';
+                currentPlayer.load();
             }
 
             // Create new audio player with crossOrigin attribute
@@ -227,8 +235,14 @@
             // Set source after setting crossOrigin
             liveAudioPlayer.src = ICECAST_URL;
 
-            // Update button immediately to provide visual feedback
-            $('#listenLiveBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Connecting...');
+            // Update button states to show we're attempting to connect
+            const playBtn = $('#listenLiveBtn');
+            const stopBtn = $('#stopLiveBtn');
+            playBtn.removeClass('btn-success btn-secondary').addClass('btn-warning')
+                   .prop('disabled', true).html('<i class="bi bi-arrow-clockwise"></i> Connecting...');
+            stopBtn.removeClass('btn-danger btn-secondary').addClass('btn-warning')
+                   .prop('disabled', false).html('<i class="bi bi-x-circle"></i> Cancel');
+            $('.text-muted.small.mt-2').text('Connecting to live stream...');
 
             // Add event listeners
             liveAudioPlayer.addEventListener('playing', () => {
@@ -265,7 +279,9 @@
             
             // Handle error event
             liveAudioPlayer.addEventListener('error', e => {
-                console.error('Stream error code:', liveAudioPlayer.error ? liveAudioPlayer.error.code : 'unknown', e);
+                // Store error details before cleanup
+                const errorCode = liveAudioPlayer && liveAudioPlayer?.error ? liveAudioPlayer.error.code : 'unknown';
+                console.error('Stream error code:', errorCode, e);
                 
                 // Only update UI if this wasn't triggered by an auto-reconnect or if we've exceeded max attempts
                 if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
@@ -275,8 +291,8 @@
                     
                     // Show specific error message based on error code
                     let errorMsg = 'Error connecting to live stream. Please try again.';
-                    if (liveAudioPlayer.error) {
-                        switch(liveAudioPlayer.error.code) {
+                    if (errorCode !== 'unknown') {
+                        switch(errorCode) {
                             case 1: errorMsg = 'Stream aborted. Please try again.'; break;
                             case 2: errorMsg = 'Network error. Please check your connection.'; break;
                             case 3: errorMsg = 'Audio decoding error. The stream may be unavailable.'; break;
@@ -292,6 +308,8 @@
 
             // Try to play and handle promise
             console.log('Attempting to play audio stream...');
+            
+            // Store the play promise to check if it's still pending when we might pause
             let playPromise = liveAudioPlayer.play();
             
             // Modern browsers return a promise from play()
@@ -303,6 +321,12 @@
                     })
                     .catch(err => {
                         console.error('Error starting stream:', err);
+                        
+                        // Don't show error if this is an AbortError during reconnection
+                        if (err.name === 'AbortError' && autoReconnectEnabled && reconnectAttempts > 0) {
+                            console.log('Play aborted during reconnection, this is expected');
+                            return;
+                        }
                         
                         if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                             isLivePlaying = false;
@@ -323,41 +347,88 @@
         
         // Function to handle stream interruptions and attempt reconnection
         function handleStreamInterruption(message) {
-            if (!autoReconnectEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                // If auto-reconnect is disabled or max attempts reached, just stop
-                console.log('Stream interrupted, auto-reconnect disabled or max attempts reached');
+            if (!autoReconnectEnabled) {
+                // If auto-reconnect is disabled, just stop
+                console.log('Stream interrupted, auto-reconnect disabled');
                 stopLiveStream();
                 showToast('Stream interrupted. Please click play to restart.', 'warning');
                 return;
             }
             
-            reconnectAttempts++;
-            console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/5`);
-            
-            // Show toast with reconnect attempt info and countdown
-            const retrySeconds = 5;
-            showToast(`${message} Reconnect attempt ${reconnectAttempts}/5 in ${retrySeconds} seconds...`, 'info');
-            
-            // Clean up existing player
-            if (liveAudioPlayer) {
-                liveAudioPlayer.pause();
-                liveAudioPlayer.src = '';
-                liveAudioPlayer.load();
-                liveAudioPlayer = null;
+            // Check if we've reached max reconnect attempts
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                console.log(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+                stopLiveStream();
+                showToast(`Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts. Please try again manually.`, 'danger');
+                return;
             }
             
-            // Update button to show countdown
-            const btn = $('#listenLiveBtn');
-            btn.prop('disabled', true).html(`<i class="bi bi-arrow-clockwise"></i> Reconnecting in ${retrySeconds}s...`);
-            
-            // Wait 1 seconds before reconnecting
-            setTimeout(() => {
-                // Only attempt to reconnect if we're still supposed to be playing
-                if (autoReconnectEnabled) {
-                    console.log('Attempting to reconnect to stream...');
-                    playLiveStream();
+            // Check if there are songs in the queue before attempting to reconnect
+            $.ajax({
+                url: '/Song/GetQueueStatus',
+                type: 'GET',
+                success: function(data) {
+                    if (data.totalSongs === 0) {
+                        console.log('No songs in queue, stopping reconnection attempts');
+                        stopLiveStream();
+                        showToast('No songs available to play. Streaming stopped.', 'info');
+                        return;
+                    }
+                    
+                    // Continue with reconnection since songs are available
+                    reconnectAttempts++;
+                    console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                    
+                    // Show toast with reconnect attempt info and countdown
+                    const retrySeconds = 5;
+                    showToast(`${message} Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${retrySeconds} seconds...`, 'info');
+                    
+                    // Clean up existing player
+                    if (liveAudioPlayer) {
+                        // Store reference to current player
+                        const currentPlayer = liveAudioPlayer;
+                        
+                        // Set to null first to prevent race conditions
+                        liveAudioPlayer = null;
+                        
+                        // Remove event listeners to prevent race conditions
+                        currentPlayer.removeEventListener('playing', null);
+                        currentPlayer.removeEventListener('pause', null);
+                        currentPlayer.removeEventListener('ended', null);
+                        currentPlayer.removeEventListener('stalled', null);
+                        currentPlayer.removeEventListener('error', null);
+                        
+                        // Pause and clean up
+                        currentPlayer.pause();
+                        currentPlayer.src = '';
+                        currentPlayer.load();
+                    }
+                    
+                    // Update buttons to show countdown with proper styling
+                    const playBtn = $('#listenLiveBtn');
+                    const stopBtn = $('#stopLiveBtn');
+                    playBtn.removeClass('btn-success btn-secondary').addClass('btn-warning')
+                           .prop('disabled', true).html(`<i class="bi bi-arrow-clockwise"></i> Reconnecting in ${retrySeconds}s...`);
+                    stopBtn.removeClass('btn-danger btn-secondary').addClass('btn-warning')
+                           .prop('disabled', false).html('<i class="bi bi-x-circle"></i> Cancel');
+                    // Also update the status text to reflect reconnection state
+                    $('.text-muted.small.mt-2').text(`Reconnecting in ${retrySeconds} seconds...`);
+                    
+                    // Wait 5 seconds before reconnecting
+                    setTimeout(() => {
+                        // Only attempt to reconnect if we're still supposed to be playing
+                        if (autoReconnectEnabled && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+                            console.log('Attempting to reconnect to stream...');
+                            playLiveStream();
+                        }
+                    }, retrySeconds * 1000);
+                },
+                error: function() {
+                    console.error('Failed to check queue status');
+                    stopLiveStream();
+                    showToast('Error checking queue status. Streaming stopped.', 'danger');
                 }
-            }, 1000); 
+            });
         }
 
         function stopLiveStream() {
@@ -365,21 +436,78 @@
             autoReconnectEnabled = false;
             reconnectAttempts = 0;
             
-            if (!liveAudioPlayer) return;
-            liveAudioPlayer.pause();
-            liveAudioPlayer.src = '';
-            liveAudioPlayer.load();
+            // Update button states immediately to show stopping
+            const playBtn = $('#listenLiveBtn');
+            const stopBtn = $('#stopLiveBtn');
+            playBtn.prop('disabled', true).html('<i class="bi bi-stop-circle"></i> Stopping...');
+            stopBtn.prop('disabled', true).html('<i class="bi bi-stop-fill"></i> Stopping...');
+            $('.text-muted.small.mt-2').text('Stopping live stream...');
+            
+            if (!liveAudioPlayer) {
+                // If no player exists, just update button states to stopped
+                setTimeout(() => updateLiveButton(), 100);
+                return;
+            }
+            
+            // Store reference to current player
+            const currentPlayer = liveAudioPlayer;
+            
+            // Set to null first to prevent race conditions
+            liveAudioPlayer = null;
+            
+            // Remove event listeners to prevent race conditions
+            currentPlayer.removeEventListener('playing', null);
+            currentPlayer.removeEventListener('pause', null);
+            currentPlayer.removeEventListener('ended', null);
+            currentPlayer.removeEventListener('stalled', null);
+            currentPlayer.removeEventListener('error', null);
+            
+            // Pause and clean up
+            currentPlayer.pause();
+            currentPlayer.src = '';
+            currentPlayer.load();
             isLivePlaying = false;
-            updateLiveButton();
+            
+            // Update button states after cleanup
+            setTimeout(() => updateLiveButton(), 100);
             stopVisualizer();
         }
 
         function updateLiveButton() {
-            const btn = $('#listenLiveBtn');
+            const playBtn = $('#listenLiveBtn');
+            const stopBtn = $('#stopLiveBtn');
+            const statusText = $('.text-muted.small.mt-2');
+            
             if (isLivePlaying) {
-                btn.html('<i class="bi bi-stop-fill"></i> Stop Live Stream').removeClass('btn-success').addClass('btn-danger');
+                // Stream is playing
+                playBtn.prop('disabled', true);
+                stopBtn.prop('disabled', false);
+                
+                if (autoReconnectEnabled && reconnectAttempts > 0) {
+                    // Currently reconnecting
+                    playBtn.removeClass('btn-success').addClass('btn-warning')
+                       .html('<i class="bi bi-arrow-clockwise"></i> Reconnecting...');
+                    stopBtn.removeClass('btn-danger').addClass('btn-warning')
+                       .html('<i class="bi bi-x-circle"></i> Cancel');
+                    statusText.text('Click to stop reconnection attempts');
+                } else {
+                    // Normal streaming
+                    playBtn.removeClass('btn-success btn-warning').addClass('btn-secondary')
+                       .html('<i class="bi bi-play-circle"></i> Playing');
+                    stopBtn.removeClass('btn-warning').addClass('btn-danger')
+                       .html('<i class="bi bi-stop-circle"></i> Stop Streaming');
+                    statusText.text('Click to stop the live radio broadcast');
+                }
             } else {
-                btn.html('<i class="bi bi-broadcast"></i> Listen Live').removeClass('btn-danger').addClass('btn-success');
+                // Stream is stopped
+                playBtn.prop('disabled', false);
+                stopBtn.prop('disabled', true);
+                
+                playBtn.removeClass('btn-secondary btn-warning').addClass('btn-success')
+                   .html('<i class="bi bi-broadcast"></i> Listen Live');
+                stopBtn.removeClass('btn-danger btn-warning').addClass('btn-secondary')
+                   .html('<i class="bi bi-stop-fill"></i> Stopped');
+                statusText.text('Click to start the live radio broadcast');
             }
         }
 
@@ -408,7 +536,9 @@
                 frequencyData = new Uint8Array(analyser.frequencyBinCount);
                 
                 try {
-                    source = audioContext.createMediaElementSource(liveAudioPlayer);
+                    // Store reference to current player to prevent race conditions
+                    const currentPlayer = liveAudioPlayer;
+                    source = audioContext.createMediaElementSource(currentPlayer);
                     source.connect(analyser);
                     analyser.connect(audioContext.destination);
                 } catch (err) {
@@ -423,11 +553,18 @@
                     try {
                         analyser.getByteFrequencyData(frequencyData);
                         
-                        const bars = frequencyData.length;
-                        const barWidth = canvas.width / bars;
+                        // Use fewer bars to make each one wider
+                        const visibleBars = Math.min(frequencyData.length, 64); // Limit to 64 bars for better visuals
+                        const barWidth = (canvas.width / visibleBars);
+                        const barSpacing = 2; // Add spacing between bars
+                        
+                        // Start position to center the bars
+                        const startX = 0;
         
-                        for (let i = 0; i < bars; i++) {
-                            const value = frequencyData[i];
+                        for (let i = 0; i < visibleBars; i++) {
+                            // Use every nth value from frequency data for wider bars
+                            const dataIndex = Math.floor(i * (frequencyData.length / visibleBars));
+                            const value = frequencyData[dataIndex];
                             const percent = value / 255;
                             const barHeight = percent * canvas.height;
         
@@ -436,7 +573,13 @@
                             ctx.shadowColor = `hsl(${hue}, 80%, 50%)`;
                             ctx.shadowBlur = 10;
         
-                            ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth - 1, barHeight);
+                            // Draw wider bars with spacing
+                            ctx.fillRect(
+                                startX + (i * (barWidth + barSpacing)), 
+                                canvas.height - barHeight, 
+                                barWidth - barSpacing, 
+                                barHeight
+                            );
                         }
                     } catch (err) {
                         console.error('Error in visualizer:', err);
