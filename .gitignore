@@ -93,3 +93,6 @@ TestResults/
 /AudioFiles
 /obj/Debug/net6.0/RadioStation.assets.cache
 /obj/Debug/net6.0/RadioStation.GeneratedMSBuildEditorConfig.editorconfig
+/.claude/settings.local.json
+/bin/Debug/net6.0/appsettings.json
+/appsettings.json
