@@ -1,1027 +1,938 @@
-﻿@{
-    ViewData["Title"] = "Radio Hub - Live Requested Songs";
+@{
+    ViewData["Title"] = "Live Radio";
+    ViewData["Description"] = "Listen to continuous streaming radio with real-time song requests and seamless playback.";
 }
 
-<style>
-    .glowing-button {
-        position: relative;
-        animation: glowing 2s ease-in-out infinite;
-        box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
 
-    .glowing-button:hover {
-        animation: glowing-intense 1s ease-in-out infinite;
-        box-shadow: 0 0 20px rgba(40, 167, 69, 0.8);
-    }
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    @@keyframes glowing {
-        0% {
-            box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        50% {
-            box-shadow: 0 0 20px rgba(40, 167, 69, 0.8);
-        }
-        100% {
-            box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
-        }
-    }
 
-    @@keyframes glowing-intense {
-        0% {
-            box-shadow: 0 0 10px rgba(40, 167, 69, 0.8);
+        .radio-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        50% {
-            box-shadow: 0 0 30px rgba(40, 167, 69, 1);
-        }
-        100% {
-            box-shadow: 0 0 10px rgba(40, 167, 69, 0.8);
-        }
-    }
-</style>
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
+        .main-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .player-section {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .album-art {
+            width: 150px;
+            height: 150px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+        }
+
+        .song-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .song-artist {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .control-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .control-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+
+        .control-btn.play-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .queue-section {
+            padding: 30px;
+        }
+
+        .search-box {
+            margin-bottom: 30px;
+        }
+
+        .search-input {
+            border: 2px solid #e0e0e0;
+            border-radius: 50px;
+            padding: 15px 25px;
+            width: 100%;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #ff6b6b;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255,107,107,0.1);
+        }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .search-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .search-item:hover {
+            background: #f8f9fa;
+            border-color: #ff6b6b;
+            transform: translateX(5px);
+        }
+
+        .search-item img {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .search-item-info {
+            flex: 1;
+        }
+
+        .search-item-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .search-item-meta {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .queue-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .queue-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .queue-item.playing {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+
+        .add-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .add-btn:hover {
+            background: #218838;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.playing {
+            background: #28a745;
+            animation: pulse 1s infinite;
+        }
+
+        .status-indicator.queued {
+            background: #ffc107;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading-spinner.active {
+            display: block;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="radio-container">
+        <div class="main-card">
             <!-- Player Section -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5>🎵 Now Playing - Live Radio</h5>
+            <div class="player-section">
+                <h1><i class="fas fa-broadcast-tower"></i> RadioHub Live</h1>
+
+                <div class="album-art">
+                    <i class="fas fa-music" id="albumIcon"></i>
                 </div>
-                <div class="card-body text-center">
-                    <!-- Now Playing Info -->
-                    <div id="nowPlaying" class="mb-3">
-                        <p class="text-muted">No song is currently playing</p>
-                    </div>
 
-                    <!-- Visualizer -->
-                    <canvas id="visualizer" width="600" height="100" style="width: 100%; background: #f8f9fa; border-radius: 5px;"></canvas>
+                <div class="song-title" id="songTitle">Welcome to RadioHub</div>
+                <div class="song-artist" id="songArtist">Add songs to start streaming</div>
 
-                    <!-- Live Stream Buttons -->
-                    <div class="mt-3">
-                        <div class="btn-group" role="group">
-                            <button id="listenLiveBtn" class="btn btn-success btn-lg glowing-button">
-                                <i class="bi bi-broadcast"></i> Listen Live - Requested Songs
-                            </button>
-                            <button id="stopLiveBtn" class="btn btn-danger btn-lg" disabled>
-                                <i class="bi bi-stop-fill"></i> Stop
-                            </button>
-                        </div>
-                        <p class="text-muted small mt-2">Click to start the live radio broadcast and hear requested songs</p>
+                <div class="control-buttons">
+                    <div class="control-btn play-btn" id="playBtn" onclick="togglePlay()">
+                        <i class="fas fa-play" id="playIcon"></i>
                     </div>
+                    <div class="control-btn" onclick="toggleMute()">
+                        <i class="fas fa-volume-up" id="volumeIcon"></i>
+                    </div>
+                    <div class="control-btn" id="reconnectBtn" onclick="manualReconnect()" title="Reconnect to server">
+                        <i class="fas fa-wifi" id="reconnectIcon"></i>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <small id="streamStatus">
+                        <span class="status-indicator" id="statusIndicator" style="background: #dc3545;"></span>
+                        <span id="statusText">Offline</span>
+                    </small>
                 </div>
             </div>
 
-            <!-- Search Section -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5>🔍 Search for Songs</h5>
-                </div>
-                <div class="card-body">
-                    <div class="input-group mb-3">
-                        <input type="text" id="searchQuery" class="form-control" placeholder="Enter song name or artist..." />
-                        <button class="btn btn-primary" id="searchButton">
-                            <i class="bi bi-search"></i> Search
+            <!-- Queue Section -->
+            <div class="queue-section">
+                <h2><i class="fas fa-list"></i> Queue Management</h2>
+
+                <!-- Search -->
+                <div class="search-box">
+                    <div class="input-group">
+                        <input type="text" class="form-control search-input" id="searchInput"
+                               placeholder="🔍 Search for songs on YouTube..." />
+                        <button class="btn btn-primary" onclick="searchSongs()">
+                            <i class="fas fa-search"></i> Search
                         </button>
                     </div>
-                    <div id="searchResults" class="row">
-                        <!-- Search results will be populated here -->
+
+                    <div class="loading-spinner" id="searchLoading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Searching...</span>
+                        </div>
+                        <p class="mt-2">Searching YouTube...</p>
                     </div>
+
+                    <div id="searchResults"></div>
                 </div>
-            </div>
-        </div>
 
-        <div class="col-md-4">
-            <!-- Queue Section -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>📋 Queue</h5>
-                </div>
-                <div class="card-body">
-                    <div id="queueStatus" class="mb-3 p-3 bg-light rounded">
-                        <p class="mb-1"><strong>Total songs:</strong> <span id="totalSongs" class="badge bg-primary">0</span></p>
-                        <p class="mb-0"><strong>Status:</strong> <span id="playingStatus" class="badge bg-secondary">Not playing</span></p>
-                    </div>
-                    <div id="songQueue" class="list-group" style="max-height: 500px; overflow-y: auto;">
-                        <!-- Queue items populated here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Request Song Modal -->
-<div class="modal fade" id="requestModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">🎵 Request Song</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>You're requesting: <strong id="requestModalSongTitle"></strong></p>
-                <div class="mb-3">
-                    <label for="requesterName" class="form-label">Your Name:</label>
-                    <input type="text" class="form-control" id="requesterName" placeholder="Enter your name" required>
-                    <div class="invalid-feedback" id="requesterNameError" style="display: none;">
-                        Please enter your name.
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="requesterNote" class="form-label">Message/Note (optional):</label>
-                    <textarea class="form-control" id="requesterNote" placeholder="Write a note to the DJ"></textarea>
-                </div>
-                <input type="hidden" id="requestModalVideoId">
-                <input type="hidden" id="requestModalTitle">
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmRequestBtn">
-                    <i class="bi bi-check-circle"></i> Request Song
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
-
-    <script>
-        // Global variables
-        let liveAudioPlayer = null;
-        let isLivePlaying = false;
-        let connection = null;
-        let queue = [];
-        let currentlyPlaying = null;
-        //let xx = radio-stream.naimurrahmanrony.com;
-        const ICECAST_URL = 'https://radio-stream.naimurrahmanrony.com';
-        let autoReconnectEnabled = false;
-        let hasSuccessfullyConnected = false; // Track if we've had a successful connection
-        let reconnectAttempts = 0;
-        const MAX_RECONNECT_ATTEMPTS = 5;
-        let isReconnecting = false; // Prevent multiple reconnection attempts
-        let reconnectTimeoutId = null; // Track reconnection timeout
-
-        // Initialize on page ready
-        $(document).ready(function() {
-            initializeSignalR();
-            setupEventHandlers();
-            // Load queue status on initial page load
-            loadQueueStatus();
-        });
-
-        // SignalR for queue updates
-        function initializeSignalR() {
-            connection = new signalR.HubConnectionBuilder()
-                .withUrl('/radioHub')
-                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000]) // Automatic reconnection strategy
-                .configureLogging(signalR.LogLevel.Information)
-                .build();
-
-            connection.on('PlaylistUpdated', updateQueueDisplay);
-            connection.on('SongStarted', data => {
-                console.log('SongStarted event received:', data);
-                updateNowPlaying(data);
-                // Also refresh the queue to highlight the currently playing song
-                loadQueueStatus();
-            });
-            connection.on('SongEnded', data => {
-                console.log('SongEnded event received');
-                currentlyPlaying = null;
-                // Refresh queue when song ends to update UI
-                loadQueueStatus();
-            });
-            connection.on('QueueUpdated', data => {
-                console.log('QueueUpdated event received');
-
-                // If we're stuck in reconnection loop and new songs are added, force a fresh connection
-                if (isReconnecting && reconnectAttempts >= 2) {
-                    console.log('Breaking reconnection loop - new songs added, forcing fresh connection');
-                    isReconnecting = false; // Reset the stuck state
-                    reconnectAttempts = 0; // Reset retry counter
-
-                    // Clear any pending reconnection timeout
-                    if (reconnectTimeoutId) {
-                        clearTimeout(reconnectTimeoutId);
-                        reconnectTimeoutId = null;
-                    }
-
-                    // If we're supposed to be playing, start fresh
-                    if (isLivePlaying && autoReconnectEnabled) {
-                        setTimeout(() => {
-                            console.log('Starting fresh connection after new song added');
-                            playLiveStream();
-                        }, 1000);
-                    }
-                }
-
-                loadQueueStatus();
-            });
-
-            // Connection state events for debugging and error handling
-            connection.onreconnecting(error => {
-                console.warn('SignalR reconnecting due to error:', error);
-                showToast('Reconnecting to radio server...', 'warning');
-            });
-            
-            connection.onreconnected(connectionId => {
-                console.log('SignalR reconnected with ID:', connectionId);
-                showToast('Reconnected to radio server!', 'success');
-                loadQueueStatus(); // Refresh data after reconnection
-            });
-            
-            connection.onclose(error => {
-                console.error('SignalR connection closed with error:', error);
-                showToast('Connection to radio server lost. Please refresh the page.', 'danger');
-            });
-
-            // Start the connection
-            startSignalRConnection();
-        }
-        
-        // Function to start SignalR connection with retry logic
-        function startSignalRConnection() {
-            console.log('Attempting to connect to SignalR hub...');
-            connection.start()
-                .then(() => {
-                    console.log('SignalR connected successfully');
-                    showToast('Connected to radio server', 'success');
-                })
-                .catch(err => {
-                    console.error('SignalR connection error:', err);
-                    showToast('Failed to connect to radio server. Retrying...', 'warning');
-                    setTimeout(startSignalRConnection, 1000); // Retry after 1 seconds
-                });
-        }
-
-        // Event handlers
-        function setupEventHandlers() {
-            $('#listenLiveBtn').click(playLiveStream);
-            $('#stopLiveBtn').click(stopLiveStream);
-            $('#searchButton').click(searchSongs);
-            $('#searchQuery').keypress(e => { if (e.which === 13) searchSongs(); });
-            $('#confirmRequestBtn').click(confirmRequest);
-            $('#requesterName').keypress(e => { if(e.which === 13) confirmRequest(); });
-            $('#clearQueueBtn').click(clearQueue);
-        }
-
-
-
-        function playLiveStream() {
-            if (isLivePlaying) return;
-
-            // Only enable auto-reconnect after we've had at least one successful connection
-            if (hasSuccessfullyConnected) {
-                autoReconnectEnabled = true;
-            }
-            reconnectAttempts = 0;
-            isReconnecting = false; // Reset reconnection flag when starting new connection
-            
-            // Check if we already have an audio player, clean it up first
-            if (liveAudioPlayer) {
-                // Store reference to current player
-                const currentPlayer = liveAudioPlayer;
-                
-                // Set to null first to prevent race conditions
-                liveAudioPlayer = null;
-                
-                // Pause and clean up
-                currentPlayer.pause();
-                currentPlayer.src = '';
-                currentPlayer.load();
-            }
-
-            // Create new audio player with crossOrigin attribute
-            liveAudioPlayer = new Audio();
-            liveAudioPlayer.crossOrigin = "anonymous"; // Add CORS header
-            liveAudioPlayer.autoplay = true;
-            
-            // Set source after setting crossOrigin
-            liveAudioPlayer.src = ICECAST_URL;
-
-            // Update button states to show we're attempting to connect
-            const playBtn = $('#listenLiveBtn');
-            const stopBtn = $('#stopLiveBtn');
-            playBtn.removeClass('btn-success btn-secondary glowing-button').addClass('btn-warning')
-                   .prop('disabled', true).html('<i class="bi bi-arrow-clockwise"></i> Connecting...');
-            stopBtn.removeClass('btn-danger btn-secondary').addClass('btn-warning')
-                   .prop('disabled', false).html('<i class="bi bi-x-circle"></i> Cancel');
-            $('.text-muted.small.mt-2').text('Connecting to live stream...');
-
-            // Add event listeners
-            liveAudioPlayer.addEventListener('playing', () => {
-                console.log('Audio stream is playing');
-                isLivePlaying = true;
-                hasSuccessfullyConnected = true; // Mark that we've had a successful connection
-                autoReconnectEnabled = true; // Now enable auto-reconnect for future interruptions
-                isReconnecting = false; // Reset reconnection flag on successful play
-                updateLiveButton();
-                showToast('Live stream started successfully', 'success');
-                // Only start visualizer after confirmed playing
-                startVisualizer();
-                // Reset reconnect attempts on successful connection
-                reconnectAttempts = 0;
-            });
-            
-            liveAudioPlayer.addEventListener('pause', () => {
-                console.log('Audio stream paused');
-                // Only update UI if this wasn't triggered by an auto-reconnect
-                if (!autoReconnectEnabled || reconnectAttempts === 0) {
-                    isLivePlaying = false;
-                    updateLiveButton();
-                }
-            });
-            
-            // Handle ended event - check if there are more songs before reconnecting
-            liveAudioPlayer.addEventListener('ended', () => {
-                console.log('Audio stream ended - checking for next song');
-
-                // Reset reconnection flag since this is a normal song end
-                isReconnecting = false;
-
-                // Wait a moment for the next song to start (normal behavior between songs)
-                setTimeout(() => {
-                    // Check if the stream has audio before attempting to reconnect
-                    // This prevents reconnection when there are no more songs
-                    $.ajax({
-                        url: '/Song/GetQueueStatus',
-                        type: 'GET',
-                        success: function(data) {
-                            if (data.totalSongs === 0) {
-                                console.log('No more songs in queue, stopping playback');
-                                isLivePlaying = false;
-                                autoReconnectEnabled = false;
-                                updateLiveButton();
-                                showToast('Queue is empty. Add songs to continue listening.', 'info');
-                                return;
-                            }
-
-                            // If there are songs but stream ended, attempt reconnection
-                            if (hasSuccessfullyConnected && autoReconnectEnabled) {
-                                console.log('More songs available, attempting to reconnect to next song');
-                                handleStreamInterruption('Song ended. Connecting to next song...');
-                            } else {
-                                console.log('Stream ended but auto-reconnect not available');
-                                isLivePlaying = false;
-                                updateLiveButton();
-                                showToast('Stream ended. Please click play to continue.', 'warning');
-                            }
-                        },
-                        error: function() {
-                            console.log('Failed to check queue status after song end');
-                            isReconnecting = false;
-                            // Don't reconnect automatically on error - let user decide
-                            isLivePlaying = false;
-                            updateLiveButton();
-                        }
-                    });
-                }, 3000); // Wait 3 seconds for next song to start
-            });
-
-            // Handle stalled event - attempt to reconnect if auto-reconnect is enabled and we've successfully connected before
-            liveAudioPlayer.addEventListener('stalled', () => {
-                console.log('Audio stream stalled');
-                if (hasSuccessfullyConnected && autoReconnectEnabled) {
-                    handleStreamInterruption('Stream stalled. Attempting to reconnect...');
-                } else {
-                    console.log('Stream stalled but no successful connection yet, this might be initial buffering');
-                    // Don't show error for initial stall, let it timeout naturally
-                }
-            });
-            
-            // Handle error event
-            liveAudioPlayer.addEventListener('error', e => {
-                // Store error details before cleanup
-                const errorCode = liveAudioPlayer && liveAudioPlayer?.error ? liveAudioPlayer.error.code : 'unknown';
-                console.error('Stream error code:', errorCode, e);
-
-                // Reset reconnection flag on error
-                isReconnecting = false;
-
-                // Only attempt reconnection if we've successfully connected before and auto-reconnect is enabled
-                if (hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                    // Attempt to reconnect
-                    handleStreamInterruption('Stream error. Attempting to reconnect...');
-                } else {
-                    // Show error and stop
-                    isLivePlaying = false;
-                    updateLiveButton();
-                    $('#listenLiveBtn').prop('disabled', false);
-
-                    // Show specific error message based on error code
-                    let errorMsg = hasSuccessfullyConnected ?
-                        'Error connecting to live stream. Please try again.' :
-                        'Unable to start live stream. Please check if songs are available in the queue and try again.';
-
-                    if (errorCode !== 'unknown') {
-                        switch(errorCode) {
-                            case 1: errorMsg = 'Stream aborted. Please try again.'; break;
-                            case 2: errorMsg = 'Network error. Please check your connection.'; break;
-                            case 3: errorMsg = hasSuccessfullyConnected ?
-                                'Audio decoding error. The stream may be unavailable.' :
-                                'No audio is currently playing. Please add songs to the queue and try again.'; break;
-                            case 4: errorMsg = 'Stream not supported. Please contact support.'; break;
-                        }
-                    }
-                    showToast(errorMsg, 'danger');
-                }
-            });
-
-            // Try to play and handle promise
-            console.log('Attempting to play audio stream...');
-            
-            // Store the play promise to check if it's still pending when we might pause
-            let playPromise = liveAudioPlayer.play();
-            
-            // Modern browsers return a promise from play()
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log('Play promise resolved successfully');
-                        // The playing event will handle the rest
-                    })
-                    .catch(err => {
-                        console.error('Error starting stream:', err);
-
-                        // Don't show error if this is an AbortError during reconnection
-                        if (err.name === 'AbortError' && hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts > 0) {
-                            console.log('Play aborted during reconnection, this is expected');
-                            return;
-                        }
-
-                        // Only attempt reconnection if we've successfully connected before
-                        if (hasSuccessfullyConnected && autoReconnectEnabled && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                            // Attempt to reconnect
-                            handleStreamInterruption('Failed to start stream. Attempting to reconnect...');
-                        } else {
-                            isLivePlaying = false;
-                            $('#listenLiveBtn').prop('disabled', false).html('<i class="bi bi-broadcast"></i> Listen Live - Requested Songs');
-
-                            if (err.name === 'NotAllowedError') {
-                                showToast('Autoplay blocked. Please click play again to start the stream.', 'warning');
-                            } else if (hasSuccessfullyConnected) {
-                                showToast('Failed to restart stream. Please try again.', 'danger');
-                            } else {
-                                showToast('Unable to start live stream. Please check if songs are available in the queue and try again.', 'danger');
-                            }
-                        }
-                    });
-            }
-        }
-        
-        // Function to handle stream interruptions and attempt reconnection
-        function handleStreamInterruption(message) {
-            // Prevent multiple reconnection attempts from firing simultaneously
-            if (isReconnecting) {
-                console.log('Reconnection already in progress, ignoring duplicate call');
-                return;
-            }
-
-            if (!autoReconnectEnabled) {
-                // If auto-reconnect is disabled, just stop
-                console.log('Stream interrupted, auto-reconnect disabled');
-                stopLiveStream();
-                showToast('Stream interrupted. Please click play to restart.', 'warning');
-                return;
-            }
-
-            // Check if we've reached max reconnect attempts
-            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                console.log(`Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
-                stopLiveStream();
-                showToast(`Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts. Please try again manually.`, 'danger');
-                return;
-            }
-
-            // Set reconnection flag to prevent duplicate calls
-            isReconnecting = true;
-            
-            // Check if there are songs in the queue before attempting to reconnect
-            $.ajax({
-                url: '/Song/GetQueueStatus',
-                type: 'GET',
-                success: function(data) {
-                    if (data.totalSongs === 0) {
-                        console.log('No songs in queue, stopping reconnection attempts');
-                        stopLiveStream();
-                        showToast('No songs available to play. Streaming stopped.', 'info');
-                        return;
-                    }
-                    
-                    // Continue with reconnection since songs are available
-                    reconnectAttempts++;
-                    console.log(`Stream interrupted. Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} - ${message}`);
-                    
-                    // Show toast with reconnect attempt info and countdown
-                    const retrySeconds = 5;
-                    showToast(`${message} Reconnect attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${retrySeconds} seconds...`, 'info');
-                    
-                    // Clean up existing player
-                    if (liveAudioPlayer) {
-                        // Store reference to current player
-                        const currentPlayer = liveAudioPlayer;
-                        
-                        // Set to null first to prevent race conditions
-                        liveAudioPlayer = null;
-                        
-                        // Remove event listeners to prevent race conditions
-                        currentPlayer.removeEventListener('playing', null);
-                        currentPlayer.removeEventListener('pause', null);
-                        currentPlayer.removeEventListener('ended', null);
-                        currentPlayer.removeEventListener('stalled', null);
-                        currentPlayer.removeEventListener('error', null);
-                        
-                        // Pause and clean up
-                        currentPlayer.pause();
-                        currentPlayer.src = '';
-                        currentPlayer.load();
-                    }
-                    
-                    // Update buttons to show countdown with proper styling
-                    const playBtn = $('#listenLiveBtn');
-                    const stopBtn = $('#stopLiveBtn');
-                    playBtn.removeClass('btn-success btn-secondary').addClass('btn-warning')
-                           .prop('disabled', true).html(`<i class="bi bi-arrow-clockwise"></i> Reconnecting in ${retrySeconds}s...`);
-                    stopBtn.removeClass('btn-danger btn-secondary').addClass('btn-warning')
-                           .prop('disabled', false).html('<i class="bi bi-x-circle"></i> Cancel');
-                    // Also update the status text to reflect reconnection state
-                    $('.text-muted.small.mt-2').text(`Reconnecting in ${retrySeconds} seconds...`);
-                    
-                    // Clear any existing timeout
-                    if (reconnectTimeoutId) {
-                        clearTimeout(reconnectTimeoutId);
-                    }
-
-                    // Wait 5 seconds before reconnecting
-                    reconnectTimeoutId = setTimeout(() => {
-                        // Debug: Log current state before reconnecting
-                        console.log(`Timeout triggered. Current state - isReconnecting: ${isReconnecting}, reconnectAttempts: ${reconnectAttempts}, autoReconnectEnabled: ${autoReconnectEnabled}`);
-
-                        // Reset reconnection flag before attempting new connection
-                        isReconnecting = false;
-
-                        // Only attempt to reconnect if we're still supposed to be playing
-                        if (autoReconnectEnabled && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
-                            console.log(`Attempting to reconnect to stream... (Attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-                            playLiveStream();
-                        } else {
-                            console.log(`Not reconnecting - autoReconnectEnabled: ${autoReconnectEnabled}, reconnectAttempts: ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
-                            stopLiveStream();
-                        }
-                    }, retrySeconds * 1000);
-                },
-                error: function() {
-                    console.error('Failed to check queue status');
-                    isReconnecting = false; // Reset flag on error
-                    stopLiveStream();
-                    showToast('Error checking queue status. Streaming stopped.', 'danger');
-                }
-            });
-        }
-
-        function stopLiveStream() {
-            // Disable auto-reconnect when manually stopping and reset connection tracking
-            autoReconnectEnabled = false;
-            hasSuccessfullyConnected = false; // Reset connection tracking
-            reconnectAttempts = 0;
-            isReconnecting = false; // Reset reconnection flag
-
-            // Clear any pending reconnection timeout
-            if (reconnectTimeoutId) {
-                clearTimeout(reconnectTimeoutId);
-                reconnectTimeoutId = null;
-            }
-
-            // Update button states immediately to show stopping
-            const playBtn = $('#listenLiveBtn');
-            const stopBtn = $('#stopLiveBtn');
-            playBtn.prop('disabled', true).html('<i class="bi bi-stop-circle"></i> Stopping...');
-            stopBtn.prop('disabled', true).html('<i class="bi bi-stop-fill"></i> Stopping...');
-            $('.text-muted.small.mt-2').text('Stopping live stream...');
-            
-            if (!liveAudioPlayer) {
-                // If no player exists, just update button states to stopped
-                setTimeout(() => updateLiveButton(), 100);
-                return;
-            }
-            
-            // Store reference to current player
-            const currentPlayer = liveAudioPlayer;
-            
-            // Set to null first to prevent race conditions
-            liveAudioPlayer = null;
-            
-            // Remove event listeners to prevent race conditions
-            currentPlayer.removeEventListener('playing', null);
-            currentPlayer.removeEventListener('pause', null);
-            currentPlayer.removeEventListener('ended', null);
-            currentPlayer.removeEventListener('stalled', null);
-            currentPlayer.removeEventListener('error', null);
-            
-            // Pause and clean up
-            currentPlayer.pause();
-            currentPlayer.src = '';
-            currentPlayer.load();
-            isLivePlaying = false;
-            
-            // Update button states after cleanup
-            setTimeout(() => updateLiveButton(), 100);
-            stopVisualizer();
-        }
-
-        function updateLiveButton() {
-            const playBtn = $('#listenLiveBtn');
-            const stopBtn = $('#stopLiveBtn');
-            const statusText = $('.text-muted.small.mt-2');
-            
-            if (isLivePlaying) {
-                // Stream is playing
-                playBtn.prop('disabled', true);
-                stopBtn.prop('disabled', false);
-                
-                if (autoReconnectEnabled && reconnectAttempts > 0) {
-                    // Currently reconnecting
-                    playBtn.removeClass('btn-success').addClass('btn-warning')
-                       .html('<i class="bi bi-arrow-clockwise"></i> Reconnecting...');
-                    stopBtn.removeClass('btn-danger').addClass('btn-warning')
-                       .html('<i class="bi bi-x-circle"></i> Cancel');
-                    statusText.text('Click to stop reconnection attempts');
-                } else {
-                    // Normal streaming
-                    playBtn.removeClass('btn-success btn-warning').addClass('btn-secondary')
-                       .html('<i class="bi bi-play-circle"></i> Playing');
-                    stopBtn.removeClass('btn-warning').addClass('btn-danger')
-                       .html('<i class="bi bi-stop-circle"></i> Stop Streaming');
-                    statusText.text('Click to stop the live radio broadcast');
-                }
-            } else {
-                // Stream is stopped
-                playBtn.prop('disabled', false);
-                stopBtn.prop('disabled', true);
-                
-                playBtn.removeClass('btn-secondary btn-warning').addClass('btn-success glowing-button')
-                   .html('<i class="bi bi-broadcast"></i> Listen Live - Requested Songs');
-                stopBtn.removeClass('btn-danger btn-warning').addClass('btn-secondary')
-                   .html('<i class="bi bi-stop-fill"></i> Stopped');
-                statusText.text('Click to start the live radio broadcast');
-            }
-        }
-
-        let canvas, ctx, animationId;
-        let audioContext, analyser, source;
-        let frequencyData;
-
-        function startVisualizer() {
-            if (!liveAudioPlayer) return;
-            
-            try {
-                // Stop previous visualizer if it exists
-                stopVisualizer();
-                
-                canvas = document.getElementById('visualizer');
-                ctx = canvas.getContext('2d');
-                
-                // Make canvas responsive - set width to match container
-                canvas.width = canvas.parentElement.clientWidth;
-    
-                // Web Audio API setup
-                // Always create a new audio context for each song
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256; // Number of samples, smaller = smoother
-                frequencyData = new Uint8Array(analyser.frequencyBinCount);
-                
-                try {
-                    // Store reference to current player to prevent race conditions
-                    const currentPlayer = liveAudioPlayer;
-                    source = audioContext.createMediaElementSource(currentPlayer);
-                    source.connect(analyser);
-                    analyser.connect(audioContext.destination);
-                } catch (err) {
-                    console.error('Error connecting audio source:', err);
-                    // Continue with visualization disabled but audio still plays
-                    return;
-                }
-    
-                function draw() {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    try {
-                        analyser.getByteFrequencyData(frequencyData);
-                        
-                        // Use fewer bars to make each one wider
-                        const visibleBars = Math.min(frequencyData.length, 64); // Limit to 64 bars for better visuals
-                        const barWidth = (canvas.width / visibleBars);
-                        const barSpacing = 2; // Add spacing between bars
-                        
-                        // Start position to center the bars
-                        const startX = 0;
-        
-                        for (let i = 0; i < visibleBars; i++) {
-                            // Use every nth value from frequency data for wider bars
-                            const dataIndex = Math.floor(i * (frequencyData.length / visibleBars));
-                            const value = frequencyData[dataIndex];
-                            const percent = value / 255;
-                            const barHeight = percent * canvas.height;
-        
-                            const hue = 120 - percent * 120; // green to red
-                            ctx.fillStyle = `hsl(${hue}, 80%, 50%)`;
-                            ctx.shadowColor = `hsl(${hue}, 80%, 50%)`;
-                            ctx.shadowBlur = 10;
-        
-                            // Draw wider bars with spacing
-                            ctx.fillRect(
-                                startX + (i * (barWidth + barSpacing)), 
-                                canvas.height - barHeight, 
-                                barWidth - barSpacing, 
-                                barHeight
-                            );
-                        }
-                    } catch (err) {
-                        console.error('Error in visualizer:', err);
-                    }
-                    
-                    animationId = requestAnimationFrame(draw);
-                }
-
-                draw();
-            } catch (err) {
-                console.error('Failed to start visualizer:', err);
-                // Audio can still play even if visualizer fails
-            }
-        }
-
-        function stopVisualizer() {
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            
-            if (ctx && canvas) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-            }
-            
-            // Clean up audio context and resources
-            if (source) {
-                try {
-                    source.disconnect();
-                    source = null;
-                } catch (err) {
-                    console.error('Error disconnecting audio source:', err);
-                }
-            }
-            
-            if (audioContext) {
-                try {
-                    audioContext.close().catch(err => console.error('Error closing audio context:', err));
-                    audioContext = null;
-                    analyser = null;
-                    frequencyData = null;
-                } catch (err) {
-                    console.error('Error closing audio context:', err);
-                }
-            }
-        }
-
-
-        // Queue handling
-        function updateQueueDisplay(queueViewModel) {
-            console.log('Updating queue display with data:', queueViewModel);
-            
-            // Handle potential null or undefined response
-            if (!queueViewModel) {
-                console.error('Invalid queue data received');
-                return;
-            }
-            
-            queue = queueViewModel.queue || [];
-            currentlyPlaying = queueViewModel.currentlyPlaying;
-            
-            // Update queue status indicators
-            const totalSongs = queue.length;
-            $('#totalSongs').text(totalSongs);
-            
-            const isPlaying = currentlyPlaying != null;
-            $('#playingStatus').text(isPlaying ? 'Playing' : 'Not playing')
-                .removeClass('bg-success bg-secondary')
-                .addClass(isPlaying ? 'bg-success' : 'bg-secondary');
-
-            // Update now playing section
-            updateNowPlaying(currentlyPlaying);
-
-            // Update queue list
-            const songQueue = $('#songQueue');
-            songQueue.empty();
-            if (!queue.length) {
-                songQueue.html('<p class="text-muted text-center p-3">The queue is empty.</p>');
-                return;
-            }
-
-            queue.forEach((song, idx) => {
-                // Highlight currently playing song in the queue if it exists there
-                const isCurrentlyPlaying = currentlyPlaying && song.youtubeVideoId === currentlyPlaying.youtubeVideoId;
-                const itemClass = isCurrentlyPlaying ? 'list-group-item active' : 'list-group-item';
-                
-                const item = `<div class="${itemClass}">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-1">
-                                <span class="badge ${isCurrentlyPlaying ? 'bg-light text-dark' : 'bg-secondary'} me-2">${idx+1}</span>
-                                <h6 class="mb-0">${song.title}</h6>
-                                ${isCurrentlyPlaying ? '<span class="ms-2 badge bg-warning">Now Playing</span>' : ''}
+                <!-- Radio Station Status -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h5><i class="fas fa-play-circle"></i> Now Playing</h5>
+                                <h3 id="nowPlayingCount">0</h3>
+                                <small class="opacity-75">Current Song</small>
                             </div>
-                            <small class="${isCurrentlyPlaying ? 'text-light' : 'text-muted'}">
-                                <i class="bi bi-person"></i> ${song.requesterName} ${song.note ? '- ' + song.note : ''}
-                            </small>
                         </div>
                     </div>
-                </div>`;
-                songQueue.append(item);
+                    <div class="col-md-4">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body text-center">
+                                <h5><i class="fas fa-user-plus"></i> User Requests</h5>
+                                <h3 id="userRequestCount">0</h3>
+                                <small class="opacity-75">Priority Queue</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h5><i class="fas fa-music"></i> Default Songs</h5>
+                                <h3 id="defaultPlaylistCount">0</h3>
+                                <small class="opacity-75">Auto-play Library</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Default Playlist -->
+                <h3><i class="fas fa-list"></i> Default Playlist</h3>
+                <div class="mb-4">
+                    <div class="queue-list" id="defaultPlaylistList" style="max-height: 200px;">
+                        <p class="text-muted text-center">Loading default playlist...</p>
+                    </div>
+                </div>
+
+                <!-- User Requests Queue -->
+                <h3><i class="fas fa-star"></i> User Requests (Priority Queue)</h3>
+                <div class="mb-4">
+                    <div class="queue-list" id="userRequestList" style="max-height: 200px;">
+                        <p class="text-muted text-center">No user requests. Songs will play from default playlist.</p>
+                    </div>
+                </div>
+
+                <!-- Queue History -->
+                <h3><i class="fas fa-history"></i> Complete Queue View</h3>
+                <div class="queue-list" id="queueList">
+                    <p class="text-muted text-center">Loading complete queue status...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Hidden Audio Element for Icecast Stream -->
+    <audio id="audioPlayer" preload="none">
+        <source src="http://localhost:8087/live" type="audio/mpeg">
+        <source src="http://localhost:8087/live" type="audio/ogg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        let connection = null;
+        let isPlaying = false;
+        let isMuted = false;
+        let queue = [];
+        let currentlyPlaying = null;
+        let isConnected = false;
+
+        const ICECAST_URL = 'http://localhost:8087/live';
+
+        // Initialize SignalR connection
+        function initializeSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl('/radiohub')
+                .build();
+
+            connection.on('QueueUpdated', (song) => {
+                console.log('Queue updated:', song);
+                loadRadioStationStatus();
+                showToast(`🎵 "${song.title}" added to queue`, 'success');
             });
-            
-            console.log('Queue display updated successfully');
+
+            // Enhanced SignalR events for radio station
+            connection.on('UserRequestAdded', (data) => {
+                console.log('User request added:', data);
+                loadRadioStationStatus();
+                showToast(`🎯 User request: "${data.title}" (Queue: ${data.queueSize})`, 'info');
+            });
+
+            connection.on('UserRequestQueued', (data) => {
+                console.log('User request queued:', data);
+                loadRadioStationStatus();
+                showToast(`✅ "${data.title}" queued at position ${data.queuePosition}`, 'success');
+            });
+
+            connection.on('PlaylistUpdated', (data) => {
+                console.log('Playlist updated:', data);
+                loadRadioStationStatus();
+
+                if (data.HasUserRequests) {
+                    showToast(`🎵 Playlist: ${data.UserRequestCount} user requests + ${data.DefaultPlaylistCount} default songs`, 'info');
+                } else {
+                    showToast(`🎵 Playing from default playlist (${data.DefaultPlaylistCount} songs)`, 'info');
+                }
+            });
+
+            connection.on('SongStarted', (data) => {
+                console.log('Song started:', data);
+                updateNowPlaying(data);
+                showToast(`🎶 Now playing: ${data.title}`, 'info');
+            });
+
+            connection.on('SongPreparing', (data) => {
+                console.log('Song preparing:', data);
+                showToast(`🎵 Preparing "${data.title}" for streaming...`, 'info');
+            });
+
+            connection.on('SongReady', (data) => {
+                console.log('Song ready:', data);
+                showToast(`✅ "${data.title}" is ready and will play next`, 'success');
+            });
+
+            connection.on('QueueCleared', () => {
+                console.log('Queue cleared');
+                loadQueueStatus();
+                showToast('Queue cleared', 'info');
+            });
+
+            connection.on('StreamStarted', () => {
+                console.log('Stream started');
+                showToast('🎙️ Radio stream is live!', 'success');
+            });
+
+            connection.on('StreamStopped', () => {
+                console.log('Stream stopped');
+                showToast('🔇 Radio stream stopped', 'warning');
+            });
+
+            // Handle connection state changes
+            connection.onreconnecting(error => {
+                console.warn('SignalR connection lost:', error);
+                isConnected = false;
+                updateStreamStatus('offline');
+                updateConnectionButton();
+                showToast('🔌 Connection lost. Please reconnect manually.', 'warning');
+                stopAudio(); // Stop audio playback on connection loss
+            });
+
+            connection.onreconnected(connectionId => {
+                console.log('SignalR reconnected:', connectionId);
+                isConnected = true;
+                updateConnectionButton();
+                showToast('🔌 Reconnected successfully!', 'success');
+                loadQueueStatus();
+            });
+
+            connection.onclose(error => {
+                console.error('SignalR connection closed:', error);
+                isConnected = false;
+                updateStreamStatus('offline');
+                updateConnectionButton();
+                showToast('🔌 Connection closed. Please reconnect manually.', 'error');
+                stopAudio(); // Stop audio playback on connection close
+            });
+
+            connection.start().then(() => {
+                console.log('SignalR connected successfully');
+                isConnected = true;
+                updateConnectionButton();
+
+                // Start periodic refresh of station status
+                setInterval(loadRadioStationStatus, 30000); // Refresh every 30 seconds
+            }).catch(err => {
+                console.error('SignalR connection error:', err);
+                isConnected = false;
+                updateStreamStatus('offline');
+                updateConnectionButton();
+                showToast('❌ Failed to connect. Please refresh the page or try reconnecting.', 'error');
+            });
+        }
+
+        // Initialize page
+        $(document).ready(function() {
+            initializeSignalR();
+            updateConnectionButton();
+            loadRadioStationStatus();
+
+            // Enter key search
+            $('#searchInput').keypress(function(e) {
+                if (e.which === 13) {
+                    searchSongs();
+                }
+            });
+        });
+
+        function togglePlay() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            const playIcon = document.getElementById('playIcon');
+            const playBtn = document.getElementById('playBtn');
+
+            if (isPlaying) {
+                audioPlayer.pause();
+                playIcon.className = 'fas fa-play';
+                playBtn.style.background = 'rgba(255,255,255,0.3)';
+                updateStreamStatus('paused');
+            } else {
+                audioPlayer.play().catch(e => {
+                    console.error('Error playing audio:', e);
+                    showToast('❌ Could not connect to stream. Check if Icecast server is running.', 'error');
+                });
+                playIcon.className = 'fas fa-pause';
+                playBtn.style.background = 'rgba(255,255,255,0.5)';
+                updateStreamStatus('playing');
+            }
+            isPlaying = !isPlaying;
+        }
+
+        function toggleMute() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            const volumeIcon = document.getElementById('volumeIcon');
+
+            if (isMuted) {
+                audioPlayer.muted = false;
+                volumeIcon.className = 'fas fa-volume-up';
+            } else {
+                audioPlayer.muted = true;
+                volumeIcon.className = 'fas fa-volume-mute';
+            }
+            isMuted = !isMuted;
+        }
+
+        async function searchSongs() {
+            const query = $('#searchInput').val().trim();
+            if (!query) {
+                showToast('Please enter a search term', 'warning');
+                return;
+            }
+
+            $('#searchLoading').addClass('active');
+            $('#searchResults').html('');
+
+            try {
+                const response = await fetch('/Song/Search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `query=${encodeURIComponent(query)}`
+                });
+
+                const result = await response.json();
+                $('#searchLoading').removeClass('active');
+
+                if (result.success && result.songs) {
+                    displaySearchResults(result.songs);
+                } else {
+                    showToast(result.message || 'Search failed', 'error');
+                }
+            } catch (error) {
+                $('#searchLoading').removeClass('active');
+                showToast('Search failed. Please try again.', 'error');
+                console.error('Search error:', error);
+            }
+        }
+
+        function displaySearchResults(songs) {
+            const resultsContainer = $('#searchResults');
+
+            if (songs.length === 0) {
+                resultsContainer.html('<p class="text-muted">No songs found.</p>');
+                return;
+            }
+
+            let html = '';
+            songs.forEach(song => {
+                html += `
+                    <div class="search-item" onclick="addToQueue('${song.videoId}', '${escapeHtml(song.title)}', '${escapeHtml(song.channelTitle)}', '${song.thumbnailUrl}')">
+                        <img src="${song.thumbnailUrl}" alt="${escapeHtml(song.title)}" />
+                        <div class="search-item-info">
+                            <div class="search-item-title">${escapeHtml(song.title)}</div>
+                            <div class="search-item-meta">
+                                ${escapeHtml(song.channelTitle)} • ${song.duration}
+                            </div>
+                        </div>
+                        <button class="add-btn">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                `;
+            });
+
+            resultsContainer.html(html);
+        }
+
+        async function addToQueue(videoId, title, artist, thumbnail) {
+            try {
+                const requesterName = prompt('Enter your name (optional):') || 'Anonymous';
+                const note = prompt('Add a note (optional):') || '';
+
+                const response = await fetch('/Song/RequestSong', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `videoId=${encodeURIComponent(videoId)}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&requesterName=${encodeURIComponent(requesterName)}&note=${encodeURIComponent(note)}`
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    // Reload complete station status to update all displays
+                    setTimeout(loadRadioStationStatus, 500);
+                } else {
+                    showToast(result.message || 'Failed to add song', 'error');
+                }
+            } catch (error) {
+                showToast('Failed to add song. Please try again.', 'error');
+                console.error('Add to queue error:', error);
+            }
+        }
+
+        async function loadRadioStationStatus() {
+            try {
+                // Load all radio station data in parallel
+                const [statusResponse, defaultResponse, userResponse, queueResponse] = await Promise.all([
+                    fetch('/Song/GetRadioStationStatus'),
+                    fetch('/Song/GetDefaultPlaylist'),
+                    fetch('/Song/GetUserRequests'),
+                    fetch('/Song/GetQueueStatus')
+                ]);
+
+                const statusData = await statusResponse.json();
+                const defaultData = await defaultResponse.json();
+                const userData = await userResponse.json();
+                const queueData = await queueResponse.json();
+
+                // Update status cards
+                if (statusData.success) {
+                    updateStatusCards(statusData.status);
+                }
+
+                // Update default playlist
+                if (defaultData.success) {
+                    updateDefaultPlaylistDisplay(defaultData.songs);
+                }
+
+                // Update user requests
+                if (userData.success) {
+                    updateUserRequestDisplay(userData.requests);
+                }
+
+                // Update current playing song and queue
+                queue = queueData.queue || [];
+                currentlyPlaying = queueData.currentlyPlaying;
+
+                updateQueueDisplay();
+                updateNowPlaying(currentlyPlaying);
+
+            } catch (error) {
+                console.error('Failed to load radio station status:', error);
+                // Fallback to basic queue loading
+                loadQueueStatus();
+            }
+        }
+
+        function updateStatusCards(status) {
+            // Update status cards
+            $('#nowPlayingCount').text(currentlyPlaying ? 1 : 0);
+            $('#userRequestCount').text(status.UserRequestsCount || 0);
+            $('#defaultPlaylistCount').text(status.DefaultPlaylistCount || 0);
+
+            // Update status indicator text
+            const statusText = document.getElementById('statusText');
+            if (status.HasUserRequests) {
+                statusText.textContent = 'Playing User Requests';
+            } else if (status.IsPlayingDefaultPlaylist) {
+                statusText.textContent = 'Playing Default Playlist';
+            } else if (status.IsStreaming) {
+                statusText.textContent = 'Live Streaming';
+            } else {
+                statusText.textContent = 'Preparing...';
+            }
+        }
+
+        function updateDefaultPlaylistDisplay(songs) {
+            const defaultList = $('#defaultPlaylistList');
+
+            if (songs.length === 0) {
+                defaultList.html('<p class="text-muted text-center">No default songs configured.</p>');
+                return;
+            }
+
+            let html = '<div class="alert alert-info"><i class="fas fa-info-circle"></i> <strong>Default Playlist</strong>: These songs play when no user requests are queued.</div>';
+            songs.forEach((song, index) => {
+                html += `
+                    <div class="queue-item">
+                        <div>
+                            <span class="status-indicator" style="background: #17a2b8;"></span>
+                            <i class="fas fa-music text-info me-2"></i>
+                            <strong>${escapeHtml(song.title)}</strong>
+                        </div>
+                        <small class="text-muted">Default • ${escapeHtml(song.duration || 'Unknown')}</small>
+                    </div>
+                `;
+            });
+
+            defaultList.html(html);
+        }
+
+        function updateUserRequestDisplay(requests) {
+            const userRequestList = $('#userRequestList');
+
+            if (requests.length === 0) {
+                userRequestList.html('<p class="text-muted text-center">No user requests. Songs will play from default playlist.</p>');
+                return;
+            }
+
+            let html = '<div class="alert alert-warning"><i class="fas fa-star"></i> <strong>User Requests</strong>: These songs have priority and will play next!</div>';
+            requests.forEach((request, index) => {
+                html += `
+                    <div class="queue-item playing">
+                        <div>
+                            <span class="status-indicator" style="background: #ffc107; animation: pulse 1s infinite;"></span>
+                            <i class="fas fa-star text-warning me-2"></i>
+                            <strong>${escapeHtml(request.title)}</strong>
+                            ${request.requesterName ? `<br><small>Requested by: ${escapeHtml(request.requesterName)}</small>` : ''}
+                        </div>
+                        <div>
+                            <small class="text-white">Position ${index + 1}</small>
+                            <br><small class="text-white opacity-75">${escapeHtml(request.duration || 'Unknown')}</small>
+                        </div>
+                    </div>
+                `;
+            });
+
+            userRequestList.html(html);
+        }
+
+        async function loadQueueStatus() {
+            try {
+                const response = await fetch('/Song/GetQueueStatus');
+                const data = await response.json();
+
+                queue = data.queue || [];
+                currentlyPlaying = data.currentlyPlaying;
+
+                updateQueueDisplay();
+                updateNowPlaying(currentlyPlaying);
+            } catch (error) {
+                console.error('Failed to load queue status:', error);
+            }
+        }
+
+        function updateQueueDisplay() {
+            const queueList = $('#queueList');
+
+            if (queue.length === 0) {
+                queueList.html('<p class="text-muted text-center">No songs in queue. Search and add songs to start streaming!</p>');
+                return;
+            }
+
+            let html = '';
+            queue.forEach((song, index) => {
+                html += `
+                    <div class="queue-item">
+                        <div>
+                            <span class="status-indicator queued"></span>
+                            <strong>${escapeHtml(song.title)}</strong>
+                        </div>
+                        <small class="text-muted">${index + 1} in queue</small>
+                    </div>
+                `;
+            });
+
+            queueList.html(html);
         }
 
         function updateNowPlaying(song) {
-            console.log('Updating now playing with song:', song);
-            const nowPlayingDiv = $('#nowPlaying');
-            
-            if (!song) {
-                nowPlayingDiv.html('<p class="text-muted">No song is currently playing</p>');
+            if (!song || !song.title) {
+                $('#songTitle').text('Welcome to RadioHub');
+                $('#songArtist').text('Add songs to start streaming');
+                $('#albumIcon').className = 'fas fa-music';
+                updateStreamStatus('offline');
                 return;
             }
-            
-            // Calculate progress if available
-            let progressHtml = '';
-            if (song.startedAt && song.duration) {
-                const startTime = new Date(song.startedAt);
-                const totalSeconds = song.duration.totalSeconds || Math.floor(song.duration / 1000);
-                const elapsedSeconds = Math.floor((new Date() - startTime) / 1000);
-                const progress = Math.min(100, Math.floor((elapsedSeconds / totalSeconds) * 100));
-                
-                progressHtml = `
-                    <div class="progress mb-2" style="height: 5px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: ${progress}%" 
-                             aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <p class="small text-muted mb-2">
-                        ${formatTime(elapsedSeconds)} / ${formatTime(totalSeconds)}
-                    </p>`;
+
+            $('#songTitle').text(song.title);
+            $('#songArtist').text('No artist info available');
+            $('#albumIcon').className = 'fas fa-compact-disc';
+            updateStreamStatus('playing');
+        }
+
+        function updateStreamStatus(status) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+
+            switch(status) {
+                case 'playing':
+                    indicator.style.background = '#28a745';
+                    statusText.textContent = 'Live Streaming';
+                    break;
+                case 'paused':
+                    indicator.style.background = '#ffc107';
+                    statusText.textContent = 'Paused';
+                    break;
+                case 'offline':
+                    indicator.style.background = '#dc3545';
+                    statusText.textContent = 'Offline';
+                    break;
+                default:
+                    indicator.style.background = '#6c757d';
+                    statusText.textContent = 'Connecting...';
             }
-            
-            nowPlayingDiv.html(`
-                <h5 class="mb-1">${song.title}</h5>
-                ${progressHtml}
-                <p class="mb-0 text-muted">
-                    <i class="bi bi-person-fill"></i> Requested by: ${song.requesterName}
-                    ${song.note ? '<br><i class="bi bi-chat-text"></i> Note: ' + song.note : ''}
-                </p>
-            `);
-        }
-        
-        // Helper function to format time in MM:SS
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
-        function searchSongs() {
-            const query = $('#searchQuery').val().trim();
-            if (!query) return;
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
 
-            $('#searchButton').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Searching...');
-            $.post('/Song/Search', { query })
-                .done(resp => resp.success === false ? alert(resp.message || 'Error') : displaySearchResults(resp.results))
-                .fail(() => alert('Error searching songs'))
-                .always(() => $('#searchButton').prop('disabled', false).html('<i class="bi bi-search"></i> Search'));
-        }
+            const bgClass = type === 'success' ? 'bg-success' :
+                           type === 'error' ? 'bg-danger' :
+                           type === 'warning' ? 'bg-warning' : 'bg-info';
 
-        function displaySearchResults(results) {
-            const container = $('#searchResults');
-            container.empty();
-            
-            // Add a message about song filtering
-            const filterMessage = `<div class="alert alert-info mb-3">
-                <i class="bi bi-info-circle"></i> Showing music results including Bangla songs and international music. Smart filtering applied to show the most relevant songs.
-            </div>`;
-            container.append(filterMessage);
-            
-            if (!results.length) return container.append('<p class="text-center text-muted">No songs found. Try different keywords.</p>');
-
-            results.forEach(result => {
-                const card = `<div class="col-md-6 mb-3">
-                    <div class="card h-100 shadow-sm">
-                        <div class="position-relative">
-                            <img src="${result.thumbnailUrl}" class="card-img-top" style="height:120px;object-fit:cover">
-                            <span class="position-absolute top-0 end-0 m-1 badge bg-success">
-                                <i class="bi bi-music-note"></i> Song
-                            </span>
-                        </div>
-                        <div class="card-body p-2">
-                            <h6 class="card-title text-truncate" title="${result.title}">${result.title}</h6>
-                            <p class="card-text small text-muted">${result.channelTitle} - ${result.durationDisplay}</p>
-                            <button class="btn btn-sm btn-primary w-100" onclick="requestSong('${result.videoId}', \`${result.title.replace(/`/g,'\\`')}\`)">
-                                <i class="bi bi-plus-circle"></i> Add to Queue
-                            </button>
-                        </div>
+            const toastHtml = `
+                <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+                    <div class="toast-body">
+                        ${message}
                     </div>
-                </div>`;
-                container.append(card);
-            });
-        }
-
-        function requestSong(videoId, title) {
-            $('#requestModalVideoId').val(videoId);
-            $('#requestModalTitle').val(title);
-            $('#requestModalSongTitle').text(title);
-            $('#requesterName').val('');
-            $('#requesterNote').val('');
-            $('#requesterNameError').hide();
-            $('#requestModal').modal('show');
-        }
-
-        function confirmRequest() {
-            const videoId = $('#requestModalVideoId').val();
-            const title = $('#requestModalTitle').val();
-            const requesterName = $('#requesterName').val().trim();
-            const note = $('#requesterNote').val().trim();
-
-            if (!requesterName) return $('#requesterNameError').show();
-            $('#requesterNameError').hide();
-            $('#requestModal').modal('hide');
-
-            $.post('/Song/RequestSong', { videoId, title, requesterName, note })
-                .done((response) => {
-                    showToast(`"${title}" added to queue!`, 'success');
-                    $('#searchResults').empty();
-                    $('#searchQuery').val('');
-                    loadQueueStatus();
-
-                    // If we're stuck in reconnection and a new song was added, break the loop
-                    if (isReconnecting && reconnectAttempts >= 1) {
-                        console.log('New song added - breaking reconnection loop and starting fresh');
-                        isReconnecting = false;
-                        reconnectAttempts = 0;
-
-                        // Clear any pending reconnection timeout
-                        if (reconnectTimeoutId) {
-                            clearTimeout(reconnectTimeoutId);
-                            reconnectTimeoutId = null;
-                        }
-
-                        // If we're supposed to be playing, restart the stream to pick up the new song
-                        if (isLivePlaying && autoReconnectEnabled) {
-                            setTimeout(() => {
-                                console.log('Restarting stream for newly added song');
-                                playLiveStream();
-                            }, 1000);
-                        }
-                    }
-                })
-                .fail(() => showToast('Error adding song', 'danger'));
-        }
-
-        function removeSong(videoId) {
-            if (!confirm('Remove this song from queue?')) return;
-            $.post('/Song/RemoveSong', { videoId })
-                .done(() => { showToast('Song removed from queue','info'); loadQueueStatus(); })
-                .fail(() => showToast('Error removing song','danger'));
-        }
-
-        function clearQueue() {
-            if (!confirm('Clear entire queue?')) return;
-            $.post('/Song/ClearQueue')
-                .done(() => { showToast('Queue cleared','info'); loadQueueStatus(); })
-                .fail(() => showToast('Error clearing queue','danger'));
-        }
-
-        function loadQueueStatus() {
-            console.log('Loading queue status...');
-            $.get('/Song/GetQueueStatus')
-                .done(response => {
-                    console.log('Queue status loaded successfully:', response);
-                    updateQueueDisplay(response);
-                })
-                .fail(error => {
-                    console.error('Error loading queue status:', error);
-                    showToast('Failed to load queue status. Please try again.', 'danger');
-                });
-        }
-
-        function showToast(message, type='success') {
-            const toastHtml = `<div class="toast align-items-center text-white bg-${type} border-0" role="alert" style="position:fixed;top:20px;right:20px;z-index:9999;">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
-            </div>`;
-            $('body').append(toastHtml);
-            const toastEl = $('.toast').last()[0];
-            const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+            `;
+
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement);
             toast.show();
-            setTimeout(() => $(toastEl).remove(), 4000);
+
+            setTimeout(() => {
+                toastElement.remove();
+            }, 5000);
         }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Manual reconnect function
+        async function manualReconnect() {
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                showToast('🔌 Already connected', 'info');
+                return;
+            }
+
+            showToast('🔄 Attempting to reconnect...', 'info');
+            updateConnectionButton();
+
+            try {
+                if (connection) {
+                    await connection.stop();
+                }
+
+                await connection.start();
+                isConnected = true;
+                updateConnectionButton();
+                showToast('🔌 Reconnected successfully!', 'success');
+                loadQueueStatus();
+            } catch (err) {
+                console.error('Manual reconnection failed:', err);
+                isConnected = false;
+                updateConnectionButton();
+                showToast('❌ Reconnection failed. Please refresh the page.', 'error');
+            }
+        }
+
+        // Stop audio playback
+        function stopAudio() {
+            const audioPlayer = document.getElementById('audioPlayer');
+            const playIcon = document.getElementById('playIcon');
+            const playBtn = document.getElementById('playBtn');
+
+            audioPlayer.pause();
+            audioPlayer.currentTime = 0;
+
+            if (isPlaying) {
+                playIcon.className = 'fas fa-play';
+                playBtn.style.background = 'rgba(255,255,255,0.3)';
+                isPlaying = false;
+            }
+        }
+
+        // Update connection button appearance
+        function updateConnectionButton() {
+            const reconnectBtn = document.getElementById('reconnectBtn');
+            const reconnectIcon = document.getElementById('reconnectIcon');
+
+            if (isConnected) {
+                reconnectBtn.style.background = 'rgba(40, 167, 69, 0.3)';
+                reconnectIcon.className = 'fas fa-wifi';
+                reconnectBtn.title = 'Connected - Click to reconnect';
+            } else {
+                reconnectBtn.style.background = 'rgba(220, 53, 69, 0.3)';
+                reconnectIcon.className = 'fas fa-wifi-slash';
+                reconnectBtn.title = 'Disconnected - Click to reconnect';
+            }
+        }
+
+        // Audio player events
+        document.getElementById('audioPlayer').addEventListener('play', () => {
+            updateStreamStatus('playing');
+        });
+
+        document.getElementById('audioPlayer').addEventListener('pause', () => {
+            updateStreamStatus('paused');
+        });
+
+        document.getElementById('audioPlayer').addEventListener('error', (e) => {
+            console.error('Audio player error:', e);
+            updateStreamStatus('offline');
+            showToast('❌ Could not connect to stream. Icecast server may not be running.', 'error');
+        });
     </script>
-}
+</body>
+</html>

@@ -19,12 +19,14 @@ namespace RadioStation.Services
         private readonly YouTubeService? _youtubeService;
         private readonly ILogger<SongService> _logger;
         private readonly IConfiguration _configuration;
+        private readonly bool _disableSearchFiltering;
 
         public SongService(ILogger<SongService> logger, IConfiguration configuration)
         {
             _logger = logger;
             _configuration = configuration;
             _youtubeClient = new YoutubeClient();
+            _disableSearchFiltering = _configuration.GetValue<bool>("DisableSearchFiltering", false);
 
             // Initialize official YouTube API service
             var apiKey = _configuration["YouTubeApiKey"];
@@ -47,7 +49,13 @@ namespace RadioStation.Services
         {
             try
             {
-                _logger.LogInformation("Searching for songs with query: {Query}", query);
+                _logger.LogInformation("Searching for songs with query: {Query}, Filtering: {Filtering}", query, !_disableSearchFiltering);
+
+                if (_disableSearchFiltering)
+                {
+                    // Simple unfiltered search for testing
+                    return await SearchWithoutFilteringAsync(query);
+                }
 
                 // Try official YouTube API first for accurate music category filtering
                 if (_youtubeService != null)
@@ -584,6 +592,34 @@ namespace RadioStation.Services
             {
                 _logger.LogError(ex, "Error checking if video ID is a song using YoutubeExplode: {VideoId}", videoId);
                 return false;
+            }
+        }
+
+        private async Task<List<SongSearchResult>> SearchWithoutFilteringAsync(string query)
+        {
+            try
+            {
+                _logger.LogInformation("Performing unfiltered search for query: {Query}", query);
+
+                var searchResults = await _youtubeClient.Search.GetVideosAsync(query)
+                    .Take(50) // Get more results since we're not filtering
+                    .ToListAsync();
+
+                var results = searchResults.Select(video => new SongSearchResult
+                {
+                    VideoId = video.Id.Value,
+                    Title = video.Title,
+                    ChannelTitle = video.Author.ChannelTitle,
+                    Duration = video.Duration ?? TimeSpan.Zero,
+                    ThumbnailUrl = video.Thumbnails.FirstOrDefault()?.Url?.ToString() ?? ""
+                }).ToList();
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in unfiltered search for query: {Query}", query);
+                return new List<SongSearchResult>();
             }
         }
     }

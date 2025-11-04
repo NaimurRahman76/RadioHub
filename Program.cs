@@ -24,9 +24,11 @@ builder.Services.AddSession(options =>
 
 builder.Services.AddSignalR();
 
-// Register the new song services
+// Register the services
 builder.Services.AddScoped<ISongService, SongService>();
-builder.Services.AddSingleton<IStreamingService, StreamingService>();
+
+// Use LiquidSoap streaming service for continuous playback
+builder.Services.AddSingleton<IStreamingService, LiquidSoapStreamingService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

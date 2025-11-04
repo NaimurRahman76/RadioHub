@@ -50,7 +50,7 @@ namespace RadioStation.Controllers
             try
             {
                 var results = await _songService.SearchSongsAsync(query);
-                return Json(new { success = true, results });
+                return Json(new { success = true, songs = results });
             }
             catch (Exception ex)
             {
@@ -104,16 +104,16 @@ namespace RadioStation.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetQueueStatus()
+        public async Task<IActionResult> GetQueueStatus()
         {
             try
             {
                 _logger.LogDebug("GetQueueStatus called");
 
-                var queue =  _streamingService.GetQueue();
-                var currentlyPlaying =  _streamingService.GetCurrentlyPlaying();
+                var queue = _streamingService.GetQueue();
+                var currentlyPlaying = _streamingService.GetCurrentlyPlaying();
 
-                _logger.LogDebug($"Queue status: {queue.Count} songs in queue, Currently playing: {currentlyPlaying?.Title ?? "None"}");
+                _logger.LogDebug("Queue status: {Count} songs in queue, Currently playing: {Title}", queue.Count, currentlyPlaying?.Title ?? "None");
 
                 // Calculate remaining time for currently playing song
                 int? remainingTime = null;
@@ -150,6 +150,130 @@ namespace RadioStation.Controllers
             {
                 _logger.LogError(ex, "Error getting queue status");
                 return Json(new { error = "Failed to get queue status" });
+            }
+        }
+
+        [HttpGet]
+        public IActionResult GetRadioStationStatus()
+        {
+            try
+            {
+                // Check if the streaming service supports enhanced features
+                if (_streamingService is LiquidSoapStreamingService liquidSoapService)
+                {
+                    var status = liquidSoapService.GetRadioStationStatus();
+                    return Json(new { success = true, status });
+                }
+                else
+                {
+                    // Fallback for other streaming services
+                    var queue = _streamingService.GetQueue();
+                    var currentlyPlaying = _streamingService.GetCurrentlyPlaying();
+
+                    return Json(new {
+                        success = true,
+                        status = new
+                        {
+                            IsStreaming = true,
+                            CurrentSong = currentlyPlaying,
+                            UserRequestsCount = queue.Count,
+                            DefaultPlaylistCount = 0,
+                            TotalSongsCount = queue.Count,
+                            HasUserRequests = queue.Count > 0,
+                            IsPlayingDefaultPlaylist = queue.Count == 0,
+                            ServiceType = "Basic"
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting radio station status");
+                return Json(new { success = false, error = "Failed to get radio station status" });
+            }
+        }
+
+        [HttpGet]
+        public IActionResult GetDefaultPlaylist()
+        {
+            try
+            {
+                // Check if the streaming service supports enhanced features
+                if (_streamingService is LiquidSoapStreamingService liquidSoapService)
+                {
+                    var defaultPlaylist = liquidSoapService.GetDefaultPlaylist();
+
+                    return Json(new {
+                        success = true,
+                        songs = defaultPlaylist.Select(s => new
+                        {
+                            youtubeVideoId = s.YoutubeVideoId,
+                            title = s.Title,
+                            duration = s.Duration
+                        }).ToList(),
+                        count = defaultPlaylist.Count
+                    });
+                }
+                else
+                {
+                    return Json(new { success = true, songs = new List<object>(), count = 0 });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting default playlist");
+                return Json(new { success = false, error = "Failed to get default playlist" });
+            }
+        }
+
+        [HttpGet]
+        public IActionResult GetUserRequests()
+        {
+            try
+            {
+                // Check if the streaming service supports enhanced features
+                if (_streamingService is LiquidSoapStreamingService liquidSoapService)
+                {
+                    var userRequests = liquidSoapService.GetUserRequests();
+
+                    return Json(new {
+                        success = true,
+                        requests = userRequests.Select(s => new
+                        {
+                            youtubeVideoId = s.YoutubeVideoId,
+                            title = s.Title,
+                            requesterName = s.RequesterName,
+                            note = s.Note,
+                            duration = s.Duration,
+                            addedAt = s.AddedToQueueAt.ToString("o")
+                        }).ToList(),
+                        count = userRequests.Count
+                    });
+                }
+                else
+                {
+                    // Fallback to queue for basic service
+                    var queue = _streamingService.GetQueue();
+
+                    return Json(new {
+                        success = true,
+                        requests = queue.Select(s => new
+                        {
+                            youtubeVideoId = s.YoutubeVideoId,
+                            title = s.Title,
+                            requesterName = s.RequesterName,
+                            note = s.Note,
+                            duration = s.Duration,
+                            addedAt = s.AddedToQueueAt.ToString("o")
+                        }).ToList(),
+                        count = queue.Count
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user requests");
+                return Json(new { success = false, error = "Failed to get user requests" });
             }
         }
 
